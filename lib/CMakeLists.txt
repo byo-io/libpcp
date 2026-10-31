@@ -58,6 +58,7 @@ target_sources(pcp
       TYPE HEADERS
       BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
       FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/duration.h
         ${CMAKE_CURRENT_SOURCE_DIR}/epoch.h
         ${CMAKE_CURRENT_SOURCE_DIR}/mapping.h
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp_gen.h

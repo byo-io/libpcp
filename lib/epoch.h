@@ -4,7 +4,9 @@
 
 typedef struct pcp_epoch {
   bool has_previous;
-  pcp_time_ms_t client;
+  // the time the previous response was received
+  pcp_time_s_t client;
+  // the server's epoch time from the previous response
   pcp_time_s_t server;
 } pcp_epoch_t;
 
