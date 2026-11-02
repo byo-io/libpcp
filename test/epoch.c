@@ -7,7 +7,7 @@ static void test_epoch_first_response_valid() {
   pcp_epoch_t epoch = {0};
   TEST_ASSERT_TRUE(pcp_epoch_update(&epoch, 5000, 1234));
   TEST_ASSERT_TRUE(epoch.has_previous);
-  TEST_ASSERT_EQUAL_UINT64(5000, epoch.client);
+  TEST_ASSERT_EQUAL_UINT32(5, epoch.client);
   TEST_ASSERT_EQUAL_UINT32(1234, epoch.server);
 }
 
