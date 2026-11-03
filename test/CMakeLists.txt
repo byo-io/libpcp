@@ -62,9 +62,9 @@ if(PCP_BUILD_FUZZER)
     message(FATAL_ERROR "PCP_BUILD_FUZZER needs clang for libFuzzer")
   endif()
 
-  add_executable(pcp_fuzz pcp_fuzz.c ${PROJECT_SOURCE_DIR}/lib/pcp_gen.c)
+  add_executable(pcp_fuzz pcp_fuzz.c ${PROJECT_SOURCE_DIR}/lib/pcp/pcp_gen.c)
   target_compile_features(pcp_fuzz PRIVATE c_std_23)
-  target_include_directories(pcp_fuzz PRIVATE ${PROJECT_SOURCE_DIR}/lib)
+  target_include_directories(pcp_fuzz PRIVATE ${PROJECT_SOURCE_DIR}/lib/pcp)
   target_compile_options(pcp_fuzz
     PRIVATE
       -g

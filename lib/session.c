@@ -1,6 +1,6 @@
 #include "session.h"
 
-#include "wire.h"
+#include "pcp/wire.h"
 
 #include <assert.h>
 #include <stdlib.h>

@@ -2,8 +2,8 @@
 
 #include <pcp/pcp.h>
 
+#include "pcp/wire.h"
 #include "schedule.h"
-#include "wire.h"
 
 /**
  * @brief What the server granted

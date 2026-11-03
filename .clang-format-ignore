@@ -1,2 +1,2 @@
-lib/pcp_gen.*
+lib/pcp/pcp_gen.*
 test/pcp_fuzz.c

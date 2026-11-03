@@ -2,8 +2,8 @@
 
 #include <pcp/pcp.h>
 
-#include "epoch.h"
 #include "mapping.h"
+#include "pcp/epoch.h"
 
 typedef struct pcp_session {
   pcp_config_t config;
