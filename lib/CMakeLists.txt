@@ -62,6 +62,7 @@ target_sources(pcp
         ${CMAKE_CURRENT_SOURCE_DIR}/mapping.h
         ${CMAKE_CURRENT_SOURCE_DIR}/schedule.h
         ${CMAKE_CURRENT_SOURCE_DIR}/session.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/view.h
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp/epoch.h
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp/pcp_gen.h
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp/wire.h)

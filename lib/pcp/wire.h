@@ -4,16 +4,7 @@
 #include <pcp/pcp.h>
 
 #include "pcp_gen.h"
-
-typedef struct const_view {
-  size_t size;
-  uint8_t const *data;
-} const_view_t;
-
-typedef struct view {
-  size_t size;
-  uint8_t *data;
-} view_t;
+#include "view.h"
 
 /**
  * @brief Size of the request pcp_packet_write_request() would write
