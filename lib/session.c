@@ -255,6 +255,23 @@ void pcp_session_release(pcp_session_t *session, pcp_handle_t handle) {
   pcp_mapping_release(mapping);
 }
 
+// A server that doesn't speak our version answers UNSUPP_VERSION with the one
+// it does, e.g. 0 for NAT-PMP (RFC 6887 section 9 and appendix A). Nothing can
+// be mapped through it, so every mapping fails and it's up to the application
+// what to do next, like trying NAT-PMP.
+static void pcp_session_on_other_version(pcp_session_t *session,
+                                         const_view_t src) {
+  auto const header = pcp_packet_read_header(src);
+  if (!header.has_value || header.value.result != UNSUPP_VERSION ||
+      header.value.version == PCP_VERSION) {
+    return;
+  }
+
+  for (auto iter = session->mappings; iter; iter = iter->next) {
+    pcp_mapping_abandon(iter, UNSUPP_VERSION);
+  }
+}
+
 void pcp_session_on_datagram(pcp_session_t *session,
                              pcp_time_ms_t now,
                              size_t size,
@@ -262,9 +279,10 @@ void pcp_session_on_datagram(pcp_session_t *session,
   assert(session);
   assert(data);
 
-  auto const response =
-      pcp_packet_read_response((const_view_t){.size = size, .data = data});
+  const_view_t const src = {.size = size, .data = data};
+  auto const response = pcp_packet_read_response(src);
   if (!response.has_value) {
+    pcp_session_on_other_version(session, src);
     return;
   }
 

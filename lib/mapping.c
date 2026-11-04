@@ -277,6 +277,24 @@ void pcp_mapping_reset(pcp_mapping_t *mapping, pcp_time_ms_t not_before) {
   }
 }
 
+void pcp_mapping_abandon(pcp_mapping_t *mapping, pcp_result_t result) {
+  assert(mapping);
+
+  switch (mapping->state.type) {
+  case PENDING:
+  case ACTIVE:
+    pcp_mapping_enter_failed(mapping, result);
+    break;
+  case RELEASING:
+    // the server can't have it
+    pcp_mapping_enter_released(mapping);
+    break;
+  case FAILED:
+  case RELEASED:
+    break;
+  }
+}
+
 void pcp_mapping_release(pcp_mapping_t *mapping) {
   assert(mapping);
   assert(mapping->state.type != RELEASING && mapping->state.type != RELEASED);

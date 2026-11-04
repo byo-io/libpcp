@@ -414,6 +414,32 @@ static void test_wire_read_response_rejects_malformed() {
   TEST_ASSERT_FALSE(read_modified(sizeof(map_response), peer_opcode));
 }
 
+static pcp_optional_header_t read_header(size_t size,
+                                         uint8_t const data[size]) {
+  return pcp_packet_read_header((const_view_t){.size = size, .data = data});
+}
+
+static void test_wire_read_header_any_version() {
+  // NAT-PMP's Unsupported Version has its result in the same octet
+  uint8_t const natpmp[] = {0, 0, 0, 1, 0, 0, 0, 5};
+  auto header = read_header(sizeof(natpmp), natpmp);
+  TEST_ASSERT_TRUE(header.has_value);
+  TEST_ASSERT_EQUAL_UINT8(0, header.value.version);
+  TEST_ASSERT_EQUAL_UINT8(UNSUPP_VERSION, header.value.result);
+
+  // too short for pcp_packet_read_response
+  uint8_t const pcp[] = {2, 129, 0, 1, 0, 0, 0, 0};
+  header = read_header(sizeof(pcp), pcp);
+  TEST_ASSERT_TRUE(header.has_value);
+  TEST_ASSERT_EQUAL_UINT8(2, header.value.version);
+  TEST_ASSERT_EQUAL_UINT8(UNSUPP_VERSION, header.value.result);
+}
+
+static void test_wire_read_header_rejects_truncated() {
+  uint8_t const truncated[] = {0, 0, 0};
+  TEST_ASSERT_FALSE(read_header(sizeof(truncated), truncated).has_value);
+}
+
 void wire_tests() {
   RUN_TEST(test_wire_map_request);
   RUN_TEST(test_wire_map_request_without_suggestion);
@@ -429,4 +455,6 @@ void wire_tests() {
   RUN_TEST(test_wire_read_error_response);
   RUN_TEST(test_wire_read_response_skips_options);
   RUN_TEST(test_wire_read_response_rejects_malformed);
+  RUN_TEST(test_wire_read_header_any_version);
+  RUN_TEST(test_wire_read_header_rejects_truncated);
 }

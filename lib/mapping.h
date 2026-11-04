@@ -88,6 +88,14 @@ void pcp_mapping_on_response(pcp_mapping_t *mapping,
 void pcp_mapping_reset(pcp_mapping_t *mapping, pcp_time_ms_t not_before);
 
 /**
+ * @brief Give up on the mapping because the server can't make it, e.g. it
+ *        doesn't speak our version
+ *
+ * The FAILED event follows unless it was already released.
+ */
+void pcp_mapping_abandon(pcp_mapping_t *mapping, pcp_result_t result);
+
+/**
  * @brief Release the mapping
  *
  * No more events are reported for it. It becomes RELEASED once the delete is

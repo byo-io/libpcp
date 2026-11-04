@@ -199,6 +199,25 @@ struct pcp_response {
 constexpr size_t PCP_RESPONSE_MIN_SIZE = 24;
 constexpr size_t PCP_RESPONSE_MAX_SIZE = 1100;
 
+/* message ResponseHeader {
+ *     version: u8;
+ *     r: u1;
+ *     opcode: u7;
+ *     _: u8;
+ *     result: u8;
+ *     rest: u8[..];
+ * } */
+struct pcp_response_header {
+    uint8_t version;
+    uint8_t r;
+    uint8_t opcode;
+    uint8_t result;
+    struct pcp_bytes rest;
+};
+
+/* Size limits of an encoded ResponseHeader, in bytes. */
+constexpr size_t PCP_RESPONSE_HEADER_MIN_SIZE = 4;
+
 /* Decode one Request. Views in *out borrow buf: keep buf alive and
  * unchanged while using them. */
 pcp_status pcp_request_decode(struct pcp_request *out, const uint8_t *buf,
@@ -235,5 +254,18 @@ pcp_status pcp_response_encode(const struct pcp_response *in, uint8_t *buf,
 
 /* Exact number of bytes pcp_response_encode will write, if it succeeds. */
 size_t pcp_response_encoded_size(const struct pcp_response *in);
+
+/* Decode one ResponseHeader. Views in *out borrow buf: keep buf alive and
+ * unchanged while using them. */
+pcp_status pcp_response_header_decode(struct pcp_response_header *out,
+                                      const uint8_t *buf, size_t len);
+
+/* Encode into buf[0..cap). On PCP_OK, *written is the encoded length. */
+pcp_status pcp_response_header_encode(const struct pcp_response_header *in,
+                                      uint8_t *buf, size_t cap,
+                                      size_t *written);
+
+/* Exact number of bytes pcp_response_header_encode will write, if it succeeds. */
+size_t pcp_response_header_encoded_size(const struct pcp_response_header *in);
 
 #endif

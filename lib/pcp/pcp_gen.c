@@ -558,3 +558,56 @@ pcp_status pcp_response_encode(const struct pcp_response *in, uint8_t *buf,
 size_t pcp_response_encoded_size(const struct pcp_response *in) {
     return pcp_response_size(in);
 }
+
+/* ---- message ResponseHeader --------------------------------------------- */
+
+static bool pcp_response_header_read(struct pcp_rd *r,
+                                     struct pcp_response_header *out) {
+    PCP_CHECK(pcp_rd_u8(r, &out->version));
+    uint8_t bits1;
+    PCP_CHECK(pcp_rd_u8(r, &bits1));
+    out->r = (uint8_t)(bits1 >> 7);
+    out->opcode = (uint8_t)(bits1 & 0x7f);
+    PCP_CHECK(pcp_rd_skip(r, 1));
+    PCP_CHECK(pcp_rd_u8(r, &out->result));
+    return pcp_rd_rest(r, &out->rest);
+}
+
+static pcp_status pcp_response_header_write(
+    struct pcp_wr *w, const struct pcp_response_header *in) {
+    PCP_TRY(pcp_wr_u8(w, in->version));
+    if (in->r > 0x1)
+        return PCP_INVALID;
+    if (in->opcode > 0x7f)
+        return PCP_INVALID;
+    PCP_TRY(pcp_wr_u8(w, (uint8_t)(((uint8_t)in->r << 7) | in->opcode)));
+    PCP_TRY(pcp_wr_zero(w, 1));
+    PCP_TRY(pcp_wr_u8(w, in->result));
+    return pcp_wr_raw(w, in->rest.ptr, in->rest.len);
+}
+
+static size_t pcp_response_header_size(const struct pcp_response_header *in) {
+    return 4 + in->rest.len;
+}
+
+pcp_status pcp_response_header_decode(struct pcp_response_header *out,
+                                      const uint8_t *buf, size_t len) {
+    struct pcp_rd r = { buf, len != 0 ? buf + len : buf };
+    /* The message must account for every byte of the input. */
+    if (!pcp_response_header_read(&r, out) || r.p != r.end)
+        return PCP_INVALID;
+    return PCP_OK;
+}
+
+pcp_status pcp_response_header_encode(const struct pcp_response_header *in,
+                                      uint8_t *buf, size_t cap,
+                                      size_t *written) {
+    struct pcp_wr w = { buf, cap != 0 ? buf + cap : buf };
+    PCP_TRY(pcp_response_header_write(&w, in));
+    *written = (size_t)(w.p - buf);
+    return PCP_OK;
+}
+
+size_t pcp_response_header_encoded_size(const struct pcp_response_header *in) {
+    return pcp_response_header_size(in);
+}

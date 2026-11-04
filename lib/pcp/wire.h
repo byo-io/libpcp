@@ -6,6 +6,9 @@
 #include "pcp_gen.h"
 #include "view.h"
 
+/// The version of PCP spoken here (RFC 6887)
+static constexpr uint8_t PCP_VERSION = 2;
+
 /**
  * @brief Size of the request pcp_packet_write_request() would write
  */
@@ -40,3 +43,19 @@ typedef struct pcp_optional_response {
  *          isn't a valid response and should be ignored.
  */
 pcp_optional_response_t pcp_packet_read_response(const_view_t src);
+
+typedef struct pcp_optional_header {
+  bool has_value;
+  struct pcp_response_header value;
+} pcp_optional_header_t;
+
+/**
+ * @brief Parse the start of anything that may be a response, whatever its
+ *        version
+ *
+ * For responses pcp_packet_read_response rejects, like UNSUPP_VERSION from a
+ * server that speaks another version.
+ *
+ * @returns The header, or nothing if `src` is too short for one
+ */
+pcp_optional_header_t pcp_packet_read_header(const_view_t src);

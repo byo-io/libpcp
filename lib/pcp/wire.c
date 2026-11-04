@@ -105,3 +105,12 @@ pcp_optional_response_t pcp_packet_read_response(const_view_t src) {
   }
   return result;
 }
+
+pcp_optional_header_t pcp_packet_read_header(const_view_t src) {
+  assert(src.data);
+
+  pcp_optional_header_t result = {.has_value = false};
+  result.has_value =
+      pcp_response_header_decode(&result.value, src.data, src.size) == PCP_OK;
+  return result;
+}

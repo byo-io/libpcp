@@ -115,6 +115,10 @@ static void walk_response(const struct pcp_response *v) {
     }
 }
 
+static void walk_response_header(const struct pcp_response_header *v) {
+    walk_bytes(&v->rest);
+}
+
 static void build_map_body(struct src *in, struct pcp_map_body *v) {
     take_raw(in, v->nonce, 12);
     v->protocol = (uint8_t)(take_u32(in) & 0xff);
@@ -212,6 +216,14 @@ static void build_response(struct src *in, struct pcp_response *v) {
         take_bytes(in, &v->body.unknown, SIZE_MAX);
         break;
     }
+}
+
+static void build_response_header(struct src *in, struct pcp_response_header *v) {
+    v->version = (uint8_t)(take_u32(in) & 0xff);
+    v->r = (uint8_t)(take_u32(in) & 0x1);
+    v->opcode = (uint8_t)(take_u32(in) & 0x7f);
+    v->result = (uint8_t)(take_u32(in) & 0xff);
+    take_bytes(in, &v->rest, SIZE_MAX);
 }
 
 /* Request has reserved fields or padding, which decode ignores and
@@ -382,6 +394,57 @@ static void encode_response(const uint8_t *data, size_t len) {
     free(b);
 }
 
+/* ResponseHeader has reserved fields or padding, which decode ignores and
+ * encode writes as zeros, so the first encode may differ from the
+ * input there. It must still have the same length, decode again, and
+ * encode to identical bytes. */
+static void decode_response_header(const uint8_t *buf, size_t size) {
+    struct pcp_response_header msg;
+    if (pcp_response_header_decode(&msg, buf, size) != PCP_OK)
+        return;
+    walk_response_header(&msg);
+    if (pcp_response_header_encoded_size(&msg) != size)
+        abort();
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    size_t n = 0;
+    if (pcp_response_header_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    if (size != 0 &&
+        pcp_response_header_encode(&msg, b, size - 1, &n) != PCP_NOSPACE)
+        abort();
+    struct pcp_response_header again;
+    if (pcp_response_header_decode(&again, a, size) != PCP_OK)
+        abort();
+    if (pcp_response_header_encode(&again, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* Build a valid ResponseHeader from the input, then encode it: it must take
+ * exactly encoded_size bytes, decode, and encode to identical bytes. */
+static void encode_response_header(const uint8_t *data, size_t len) {
+    struct src in = { data, data + len };
+    struct pcp_response_header msg = {};
+    build_response_header(&in, &msg);
+    size_t size = pcp_response_header_encoded_size(&msg);
+    size_t n = 0;
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    if (pcp_response_header_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    struct pcp_response_header back;
+    if (pcp_response_header_decode(&back, a, size) != PCP_OK)
+        abort();
+    if (pcp_response_header_encode(&back, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* An exact-size heap copy, so ASan catches any overread. */
     uint8_t *buf = malloc(size != 0 ? size : 1);
@@ -393,6 +456,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     encode_request_option(buf, size);
     decode_response(buf, size);
     encode_response(buf, size);
+    decode_response_header(buf, size);
+    encode_response_header(buf, size);
     free(buf);
     return 0;
 }

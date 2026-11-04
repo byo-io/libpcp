@@ -122,3 +122,16 @@ message Response max 1100 {
     _ => u8[..],
   };
 }
+
+// The start of every response (section 7.2), without the checks Response makes.
+// The version and result are where they are in every version, NAT-PMP's
+// version 0 included, so a server that doesn't speak ours can still say which
+// one it does (section 9 and appendix A).
+message ResponseHeader {
+  version: u8;
+  r: u1;
+  opcode: u7;
+  _: u8;
+  result: u8;
+  rest: u8[..];
+}
