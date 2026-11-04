@@ -93,30 +93,20 @@ static void walk_request_option(const struct pcp_request_option *v) {
     }
 }
 
+static void walk_response_header(const struct pcp_response_header *v) {
+    walk_bytes(&v->rest);
+}
+
+static void walk_announce_response(const struct pcp_announce_response *v) {
+    walk_bytes(&v->options);
+}
+
 static void walk_map_response(const struct pcp_map_response *v) {
     walk_bytes(&v->options);
 }
 
 static void walk_peer_response(const struct pcp_peer_response *v) {
     walk_bytes(&v->options);
-}
-
-static void walk_response(const struct pcp_response *v) {
-    switch (v->opcode) {
-    case PCP_OPCODE_MAP:
-        walk_map_response(&v->body.map_response);
-        break;
-    case PCP_OPCODE_PEER:
-        walk_peer_response(&v->body.peer_response);
-        break;
-    default:
-        walk_bytes(&v->body.unknown);
-        break;
-    }
-}
-
-static void walk_response_header(const struct pcp_response_header *v) {
-    walk_bytes(&v->rest);
 }
 
 static void build_map_body(struct src *in, struct pcp_map_body *v) {
@@ -177,7 +167,23 @@ static void build_request_option(struct src *in, struct pcp_request_option *v) {
     }
 }
 
+static void build_response_header(struct src *in, struct pcp_response_header *v) {
+    v->version = (uint8_t)(take_u32(in) & 0xff);
+    v->r = (uint8_t)(take_u32(in) & 0x1);
+    v->opcode = (enum pcp_opcode)(take_u32(in) & 0x7f);
+    v->result = (uint8_t)(take_u32(in) & 0xff);
+    take_bytes(in, &v->rest, SIZE_MAX);
+}
+
+static void build_announce_response(struct src *in, struct pcp_announce_response *v) {
+    v->lifetime = (uint32_t)(take_u32(in) & 0xffffffff);
+    v->epoch = (uint32_t)(take_u32(in) & 0xffffffff);
+    take_bytes(in, &v->options, SIZE_MAX);
+}
+
 static void build_map_response(struct src *in, struct pcp_map_response *v) {
+    v->lifetime = (uint32_t)(take_u32(in) & 0xffffffff);
+    v->epoch = (uint32_t)(take_u32(in) & 0xffffffff);
     take_raw(in, v->nonce, 12);
     v->protocol = (uint8_t)(take_u32(in) & 0xff);
     v->internal_port = (uint16_t)(take_u32(in) & 0xffff);
@@ -187,6 +193,8 @@ static void build_map_response(struct src *in, struct pcp_map_response *v) {
 }
 
 static void build_peer_response(struct src *in, struct pcp_peer_response *v) {
+    v->lifetime = (uint32_t)(take_u32(in) & 0xffffffff);
+    v->epoch = (uint32_t)(take_u32(in) & 0xffffffff);
     take_raw(in, v->nonce, 12);
     v->protocol = (uint8_t)(take_u32(in) & 0xff);
     v->internal_port = (uint16_t)(take_u32(in) & 0xffff);
@@ -195,35 +203,6 @@ static void build_peer_response(struct src *in, struct pcp_peer_response *v) {
     v->peer_port = (uint16_t)(take_u32(in) & 0xffff);
     take_raw(in, v->peer_ip, 16);
     take_bytes(in, &v->options, SIZE_MAX);
-}
-
-static void build_response(struct src *in, struct pcp_response *v) {
-    v->opcode = (enum pcp_opcode)(take_u32(in) & 0x7f);
-    v->result = (uint8_t)(take_u32(in) & 0xff);
-    v->lifetime = (uint32_t)(take_u32(in) & 0xffffffff);
-    v->epoch = (uint32_t)(take_u32(in) & 0xffffffff);
-    switch (take_u8(in) % 3) {
-    case 0:
-        v->opcode = PCP_OPCODE_MAP;
-        build_map_response(in, &v->body.map_response);
-        break;
-    case 1:
-        v->opcode = PCP_OPCODE_PEER;
-        build_peer_response(in, &v->body.peer_response);
-        break;
-    default:
-        v->opcode = (enum pcp_opcode)0;  /* no arm */
-        take_bytes(in, &v->body.unknown, SIZE_MAX);
-        break;
-    }
-}
-
-static void build_response_header(struct src *in, struct pcp_response_header *v) {
-    v->version = (uint8_t)(take_u32(in) & 0xff);
-    v->r = (uint8_t)(take_u32(in) & 0x1);
-    v->opcode = (uint8_t)(take_u32(in) & 0x7f);
-    v->result = (uint8_t)(take_u32(in) & 0xff);
-    take_bytes(in, &v->rest, SIZE_MAX);
 }
 
 /* Request has reserved fields or padding, which decode ignores and
@@ -338,62 +317,6 @@ static void encode_request_option(const uint8_t *data, size_t len) {
     free(b);
 }
 
-/* Response has reserved fields or padding, which decode ignores and
- * encode writes as zeros, so the first encode may differ from the
- * input there. It must still have the same length, decode again, and
- * encode to identical bytes. */
-static void decode_response(const uint8_t *buf, size_t size) {
-    struct pcp_response msg;
-    if (pcp_response_decode(&msg, buf, size) != PCP_OK)
-        return;
-    walk_response(&msg);
-    if (pcp_response_encoded_size(&msg) != size)
-        abort();
-    uint8_t *a = malloc(size != 0 ? size : 1);
-    uint8_t *b = malloc(size != 0 ? size : 1);
-    size_t n = 0;
-    if (pcp_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
-        abort();
-    if (size != 0 &&
-        pcp_response_encode(&msg, b, size - 1, &n) != PCP_NOSPACE)
-        abort();
-    struct pcp_response again;
-    if (pcp_response_decode(&again, a, size) != PCP_OK)
-        abort();
-    if (pcp_response_encode(&again, b, size, &n) != PCP_OK || n != size ||
-        memcmp(a, b, size) != 0)
-        abort();
-    free(a);
-    free(b);
-}
-
-/* Build a valid Response from the input, then encode it: it must take
- * exactly encoded_size bytes, decode, and encode to identical bytes. */
-static void encode_response(const uint8_t *data, size_t len) {
-    struct src in = { data, data + len };
-    struct pcp_response msg = {};
-    build_response(&in, &msg);
-    size_t size = pcp_response_encoded_size(&msg);
-    size_t n = 0;
-    if (size > PCP_RESPONSE_MAX_SIZE) {
-        if (pcp_response_encode(&msg, NULL, 0, &n) != PCP_INVALID)
-            abort();
-        return;
-    }
-    uint8_t *a = malloc(size != 0 ? size : 1);
-    uint8_t *b = malloc(size != 0 ? size : 1);
-    if (pcp_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
-        abort();
-    struct pcp_response back;
-    if (pcp_response_decode(&back, a, size) != PCP_OK)
-        abort();
-    if (pcp_response_encode(&back, b, size, &n) != PCP_OK || n != size ||
-        memcmp(a, b, size) != 0)
-        abort();
-    free(a);
-    free(b);
-}
-
 /* ResponseHeader has reserved fields or padding, which decode ignores and
  * encode writes as zeros, so the first encode may differ from the
  * input there. It must still have the same length, decode again, and
@@ -431,6 +354,11 @@ static void encode_response_header(const uint8_t *data, size_t len) {
     build_response_header(&in, &msg);
     size_t size = pcp_response_header_encoded_size(&msg);
     size_t n = 0;
+    if (size > PCP_RESPONSE_HEADER_MAX_SIZE) {
+        if (pcp_response_header_encode(&msg, NULL, 0, &n) != PCP_INVALID)
+            abort();
+        return;
+    }
     uint8_t *a = malloc(size != 0 ? size : 1);
     uint8_t *b = malloc(size != 0 ? size : 1);
     if (pcp_response_header_encode(&msg, a, size, &n) != PCP_OK || n != size)
@@ -439,6 +367,159 @@ static void encode_response_header(const uint8_t *data, size_t len) {
     if (pcp_response_header_decode(&back, a, size) != PCP_OK)
         abort();
     if (pcp_response_header_encode(&back, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* AnnounceResponse has reserved fields or padding, which decode ignores and
+ * encode writes as zeros, so the first encode may differ from the
+ * input there. It must still have the same length, decode again, and
+ * encode to identical bytes. */
+static void decode_announce_response(const uint8_t *buf, size_t size) {
+    struct pcp_announce_response msg;
+    if (pcp_announce_response_decode(&msg, buf, size) != PCP_OK)
+        return;
+    walk_announce_response(&msg);
+    if (pcp_announce_response_encoded_size(&msg) != size)
+        abort();
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    size_t n = 0;
+    if (pcp_announce_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    if (size != 0 &&
+        pcp_announce_response_encode(&msg, b, size - 1, &n) != PCP_NOSPACE)
+        abort();
+    struct pcp_announce_response again;
+    if (pcp_announce_response_decode(&again, a, size) != PCP_OK)
+        abort();
+    if (pcp_announce_response_encode(&again, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* Build a valid AnnounceResponse from the input, then encode it: it must take
+ * exactly encoded_size bytes, decode, and encode to identical bytes. */
+static void encode_announce_response(const uint8_t *data, size_t len) {
+    struct src in = { data, data + len };
+    struct pcp_announce_response msg = {};
+    build_announce_response(&in, &msg);
+    size_t size = pcp_announce_response_encoded_size(&msg);
+    size_t n = 0;
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    if (pcp_announce_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    struct pcp_announce_response back;
+    if (pcp_announce_response_decode(&back, a, size) != PCP_OK)
+        abort();
+    if (pcp_announce_response_encode(&back, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* MapResponse has reserved fields or padding, which decode ignores and
+ * encode writes as zeros, so the first encode may differ from the
+ * input there. It must still have the same length, decode again, and
+ * encode to identical bytes. */
+static void decode_map_response(const uint8_t *buf, size_t size) {
+    struct pcp_map_response msg;
+    if (pcp_map_response_decode(&msg, buf, size) != PCP_OK)
+        return;
+    walk_map_response(&msg);
+    if (pcp_map_response_encoded_size(&msg) != size)
+        abort();
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    size_t n = 0;
+    if (pcp_map_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    if (size != 0 &&
+        pcp_map_response_encode(&msg, b, size - 1, &n) != PCP_NOSPACE)
+        abort();
+    struct pcp_map_response again;
+    if (pcp_map_response_decode(&again, a, size) != PCP_OK)
+        abort();
+    if (pcp_map_response_encode(&again, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* Build a valid MapResponse from the input, then encode it: it must take
+ * exactly encoded_size bytes, decode, and encode to identical bytes. */
+static void encode_map_response(const uint8_t *data, size_t len) {
+    struct src in = { data, data + len };
+    struct pcp_map_response msg = {};
+    build_map_response(&in, &msg);
+    size_t size = pcp_map_response_encoded_size(&msg);
+    size_t n = 0;
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    if (pcp_map_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    struct pcp_map_response back;
+    if (pcp_map_response_decode(&back, a, size) != PCP_OK)
+        abort();
+    if (pcp_map_response_encode(&back, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* PeerResponse has reserved fields or padding, which decode ignores and
+ * encode writes as zeros, so the first encode may differ from the
+ * input there. It must still have the same length, decode again, and
+ * encode to identical bytes. */
+static void decode_peer_response(const uint8_t *buf, size_t size) {
+    struct pcp_peer_response msg;
+    if (pcp_peer_response_decode(&msg, buf, size) != PCP_OK)
+        return;
+    walk_peer_response(&msg);
+    if (pcp_peer_response_encoded_size(&msg) != size)
+        abort();
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    size_t n = 0;
+    if (pcp_peer_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    if (size != 0 &&
+        pcp_peer_response_encode(&msg, b, size - 1, &n) != PCP_NOSPACE)
+        abort();
+    struct pcp_peer_response again;
+    if (pcp_peer_response_decode(&again, a, size) != PCP_OK)
+        abort();
+    if (pcp_peer_response_encode(&again, b, size, &n) != PCP_OK || n != size ||
+        memcmp(a, b, size) != 0)
+        abort();
+    free(a);
+    free(b);
+}
+
+/* Build a valid PeerResponse from the input, then encode it: it must take
+ * exactly encoded_size bytes, decode, and encode to identical bytes. */
+static void encode_peer_response(const uint8_t *data, size_t len) {
+    struct src in = { data, data + len };
+    struct pcp_peer_response msg = {};
+    build_peer_response(&in, &msg);
+    size_t size = pcp_peer_response_encoded_size(&msg);
+    size_t n = 0;
+    uint8_t *a = malloc(size != 0 ? size : 1);
+    uint8_t *b = malloc(size != 0 ? size : 1);
+    if (pcp_peer_response_encode(&msg, a, size, &n) != PCP_OK || n != size)
+        abort();
+    struct pcp_peer_response back;
+    if (pcp_peer_response_decode(&back, a, size) != PCP_OK)
+        abort();
+    if (pcp_peer_response_encode(&back, b, size, &n) != PCP_OK || n != size ||
         memcmp(a, b, size) != 0)
         abort();
     free(a);
@@ -454,10 +535,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     encode_request(buf, size);
     decode_request_option(buf, size);
     encode_request_option(buf, size);
-    decode_response(buf, size);
-    encode_response(buf, size);
     decode_response_header(buf, size);
     encode_response_header(buf, size);
+    decode_announce_response(buf, size);
+    encode_announce_response(buf, size);
+    decode_map_response(buf, size);
+    encode_map_response(buf, size);
+    decode_peer_response(buf, size);
+    encode_peer_response(buf, size);
     free(buf);
     return 0;
 }

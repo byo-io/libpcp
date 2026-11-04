@@ -130,7 +130,46 @@ struct pcp_request_option {
 constexpr size_t PCP_REQUEST_OPTION_MIN_SIZE = 20;
 constexpr size_t PCP_REQUEST_OPTION_MAX_SIZE = 24;
 
-/* struct MapResponse {
+/* message ResponseHeader max 1100 {
+ *     version: u8;
+ *     r: u1;
+ *     opcode: Opcode;
+ *     _: u8;
+ *     result: u8;
+ *     rest: u8[..];
+ * } */
+struct pcp_response_header {
+    uint8_t version;
+    uint8_t r;
+    enum pcp_opcode opcode;
+    uint8_t result;
+    struct pcp_bytes rest;
+};
+
+/* Size limits of an encoded ResponseHeader, in bytes. Decode and encode
+ * reject a ResponseHeader larger than PCP_RESPONSE_HEADER_MAX_SIZE. */
+constexpr size_t PCP_RESPONSE_HEADER_MIN_SIZE = 4;
+constexpr size_t PCP_RESPONSE_HEADER_MAX_SIZE = 1100;
+
+/* message AnnounceResponse {
+ *     lifetime: u32;
+ *     epoch: u32;
+ *     _: u8[12];
+ *     options: u8[..];
+ * } */
+struct pcp_announce_response {
+    uint32_t lifetime;
+    uint32_t epoch;
+    struct pcp_bytes options;
+};
+
+/* Size limits of an encoded AnnounceResponse, in bytes. */
+constexpr size_t PCP_ANNOUNCE_RESPONSE_MIN_SIZE = 20;
+
+/* message MapResponse {
+ *     lifetime: u32;
+ *     epoch: u32;
+ *     _: u8[12];
  *     nonce: u8[12];
  *     protocol: u8;
  *     _: u8[3];
@@ -140,6 +179,8 @@ constexpr size_t PCP_REQUEST_OPTION_MAX_SIZE = 24;
  *     options: u8[..];
  * } */
 struct pcp_map_response {
+    uint32_t lifetime;
+    uint32_t epoch;
     uint8_t nonce[12];
     uint8_t protocol;
     uint16_t internal_port;
@@ -148,7 +189,13 @@ struct pcp_map_response {
     struct pcp_bytes options;
 };
 
-/* struct PeerResponse {
+/* Size limits of an encoded MapResponse, in bytes. */
+constexpr size_t PCP_MAP_RESPONSE_MIN_SIZE = 56;
+
+/* message PeerResponse {
+ *     lifetime: u32;
+ *     epoch: u32;
+ *     _: u8[12];
  *     nonce: u8[12];
  *     protocol: u8;
  *     _: u8[3];
@@ -161,6 +208,8 @@ struct pcp_map_response {
  *     options: u8[..];
  * } */
 struct pcp_peer_response {
+    uint32_t lifetime;
+    uint32_t epoch;
     uint8_t nonce[12];
     uint8_t protocol;
     uint16_t internal_port;
@@ -171,52 +220,8 @@ struct pcp_peer_response {
     struct pcp_bytes options;
 };
 
-/* message Response max 1100 {
- *     version: u8 = 2;
- *     r: u1 = 1;
- *     opcode: Opcode;
- *     _: u8;
- *     result: u8;
- *     lifetime: u32;
- *     epoch: u32;
- *     _: u8[12];
- *     body: switch (opcode) { ... };
- * } */
-struct pcp_response {
-    enum pcp_opcode opcode;  /* selects body */
-    uint8_t result;
-    uint32_t lifetime;
-    uint32_t epoch;
-    union {
-        struct pcp_map_response  map_response;   /* MAP */
-        struct pcp_peer_response peer_response;  /* PEER */
-        struct pcp_bytes         unknown;        /* any other value */
-    } body;
-};
-
-/* Size limits of an encoded Response, in bytes. Decode and encode
- * reject a Response larger than PCP_RESPONSE_MAX_SIZE. */
-constexpr size_t PCP_RESPONSE_MIN_SIZE = 24;
-constexpr size_t PCP_RESPONSE_MAX_SIZE = 1100;
-
-/* message ResponseHeader {
- *     version: u8;
- *     r: u1;
- *     opcode: u7;
- *     _: u8;
- *     result: u8;
- *     rest: u8[..];
- * } */
-struct pcp_response_header {
-    uint8_t version;
-    uint8_t r;
-    uint8_t opcode;
-    uint8_t result;
-    struct pcp_bytes rest;
-};
-
-/* Size limits of an encoded ResponseHeader, in bytes. */
-constexpr size_t PCP_RESPONSE_HEADER_MIN_SIZE = 4;
+/* Size limits of an encoded PeerResponse, in bytes. */
+constexpr size_t PCP_PEER_RESPONSE_MIN_SIZE = 76;
 
 /* Decode one Request. Views in *out borrow buf: keep buf alive and
  * unchanged while using them. */
@@ -243,18 +248,6 @@ pcp_status pcp_request_option_encode(const struct pcp_request_option *in,
 /* Exact number of bytes pcp_request_option_encode will write, if it succeeds. */
 size_t pcp_request_option_encoded_size(const struct pcp_request_option *in);
 
-/* Decode one Response. Views in *out borrow buf: keep buf alive and
- * unchanged while using them. */
-pcp_status pcp_response_decode(struct pcp_response *out, const uint8_t *buf,
-                               size_t len);
-
-/* Encode into buf[0..cap). On PCP_OK, *written is the encoded length. */
-pcp_status pcp_response_encode(const struct pcp_response *in, uint8_t *buf,
-                               size_t cap, size_t *written);
-
-/* Exact number of bytes pcp_response_encode will write, if it succeeds. */
-size_t pcp_response_encoded_size(const struct pcp_response *in);
-
 /* Decode one ResponseHeader. Views in *out borrow buf: keep buf alive and
  * unchanged while using them. */
 pcp_status pcp_response_header_decode(struct pcp_response_header *out,
@@ -267,5 +260,43 @@ pcp_status pcp_response_header_encode(const struct pcp_response_header *in,
 
 /* Exact number of bytes pcp_response_header_encode will write, if it succeeds. */
 size_t pcp_response_header_encoded_size(const struct pcp_response_header *in);
+
+/* Decode one AnnounceResponse. Views in *out borrow buf: keep buf alive and
+ * unchanged while using them. */
+pcp_status pcp_announce_response_decode(struct pcp_announce_response *out,
+                                        const uint8_t *buf, size_t len);
+
+/* Encode into buf[0..cap). On PCP_OK, *written is the encoded length. */
+pcp_status pcp_announce_response_encode(const struct pcp_announce_response *in,
+                                        uint8_t *buf, size_t cap,
+                                        size_t *written);
+
+/* Exact number of bytes pcp_announce_response_encode will write, if it succeeds. */
+size_t pcp_announce_response_encoded_size(
+    const struct pcp_announce_response *in);
+
+/* Decode one MapResponse. Views in *out borrow buf: keep buf alive and
+ * unchanged while using them. */
+pcp_status pcp_map_response_decode(struct pcp_map_response *out,
+                                   const uint8_t *buf, size_t len);
+
+/* Encode into buf[0..cap). On PCP_OK, *written is the encoded length. */
+pcp_status pcp_map_response_encode(const struct pcp_map_response *in,
+                                   uint8_t *buf, size_t cap, size_t *written);
+
+/* Exact number of bytes pcp_map_response_encode will write, if it succeeds. */
+size_t pcp_map_response_encoded_size(const struct pcp_map_response *in);
+
+/* Decode one PeerResponse. Views in *out borrow buf: keep buf alive and
+ * unchanged while using them. */
+pcp_status pcp_peer_response_decode(struct pcp_peer_response *out,
+                                    const uint8_t *buf, size_t len);
+
+/* Encode into buf[0..cap). On PCP_OK, *written is the encoded length. */
+pcp_status pcp_peer_response_encode(const struct pcp_peer_response *in,
+                                    uint8_t *buf, size_t cap, size_t *written);
+
+/* Exact number of bytes pcp_peer_response_encode will write, if it succeeds. */
+size_t pcp_peer_response_encoded_size(const struct pcp_peer_response *in);
 
 #endif

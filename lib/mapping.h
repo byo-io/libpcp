@@ -76,7 +76,7 @@ void pcp_mapping_init(pcp_mapping_t *mapping,
  * @brief Handle a server response. Responses for other mappings are ignored.
  */
 void pcp_mapping_on_response(pcp_mapping_t *mapping,
-                             struct pcp_response const *response,
+                             pcp_response_t const *response,
                              pcp_time_ms_t now,
                              pcp_rng_t rng);
 

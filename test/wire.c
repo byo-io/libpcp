@@ -270,9 +270,15 @@ static uint8_t const map_response[] = {
     0xCB, 0x00, 0x71, 0x07};
 // clang-format on
 
+// both steps, like the session does
 static pcp_optional_response_t read_response(size_t size,
                                              uint8_t const data[size]) {
-  return pcp_packet_read_response((const_view_t){.size = size, .data = data});
+  auto const header =
+      pcp_packet_read_header((const_view_t){.size = size, .data = data});
+  if (!header.has_value || header.value.version != PCP_VERSION) {
+    return (pcp_optional_response_t){.has_value = false};
+  }
+  return pcp_packet_read_response(&header.value);
 }
 
 static void test_wire_read_map_response() {
@@ -427,7 +433,7 @@ static void test_wire_read_header_any_version() {
   TEST_ASSERT_EQUAL_UINT8(0, header.value.version);
   TEST_ASSERT_EQUAL_UINT8(UNSUPP_VERSION, header.value.result);
 
-  // too short for pcp_packet_read_response
+  // too short for a whole response
   uint8_t const pcp[] = {2, 129, 0, 1, 0, 0, 0, 0};
   header = read_header(sizeof(pcp), pcp);
   TEST_ASSERT_TRUE(header.has_value);
