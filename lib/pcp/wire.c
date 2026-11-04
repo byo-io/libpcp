@@ -1,4 +1,4 @@
-#include "wire.h"
+#include "pcp/wire.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -82,26 +82,67 @@ size_t pcp_packet_write_request(view_t dst,
   return cursor;
 }
 
-pcp_optional_response_t pcp_packet_read_response(const_view_t src) {
+pcp_optional_header_t pcp_packet_read_header(const_view_t src) {
   assert(src.data);
 
-  pcp_optional_response_t result = {.has_value = false};
+  pcp_optional_header_t result = {.has_value = false};
+  result.has_value =
+      pcp_response_header_decode(&result.value, src.data, src.size) == PCP_OK;
+  return result;
+}
 
-  // silently drop anything malformed (RFC 6887 section 8.3). The generated
-  // decoder checks the size limits, the version and the R bit.
-  if (src.size % 4 != 0 ||
-      pcp_response_decode(&result.value, src.data, src.size) != PCP_OK) {
+pcp_optional_response_t
+pcp_packet_read_response(struct pcp_response_header const *header) {
+  assert(header);
+  assert(header->version == PCP_VERSION);
+
+  pcp_optional_response_t result = {.has_value = false};
+  auto const out = &result.value;
+  auto const body = header->rest;
+
+  // silently drop anything malformed (RFC 6887 section 8.3): requests,
+  // datagrams that aren't a multiple of 4 octets, and bodies that don't fit
+  // their opcode, like errors without the request's body. Those can't be
+  // matched to a mapping anyway.
+  if (header->r != 1 || body.len % 4 != 0) {
     return result;
   }
 
-  // only ANNOUNCE and responses to our own MAP/PEER requests matter. Errors
-  // without a body can't be matched to a mapping anyway, and fail to decode.
-  switch (result.value.opcode) {
-  case PCP_OPCODE_ANNOUNCE:
-  case PCP_OPCODE_MAP:
-  case PCP_OPCODE_PEER:
-    result.has_value = true;
+  switch (header->opcode) {
+  case PCP_OPCODE_ANNOUNCE: {
+    struct pcp_announce_response announce;
+    if (pcp_announce_response_decode(&announce, body.ptr, body.len) != PCP_OK) {
+      return result;
+    }
+    out->lifetime = announce.lifetime;
+    out->epoch = announce.epoch;
     break;
   }
+  case PCP_OPCODE_MAP: {
+    auto const map = &out->body.map_response;
+    if (pcp_map_response_decode(map, body.ptr, body.len) != PCP_OK) {
+      return result;
+    }
+    out->lifetime = map->lifetime;
+    out->epoch = map->epoch;
+    break;
+  }
+  case PCP_OPCODE_PEER: {
+    auto const peer = &out->body.peer_response;
+    if (pcp_peer_response_decode(peer, body.ptr, body.len) != PCP_OK) {
+      return result;
+    }
+    out->lifetime = peer->lifetime;
+    out->epoch = peer->epoch;
+    break;
+  }
+  default:
+    // only ANNOUNCE and responses to our own MAP/PEER requests matter
+    return result;
+  }
+
+  out->opcode = header->opcode;
+  out->result = header->result;
+  result.has_value = true;
   return result;
 }

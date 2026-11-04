@@ -1,6 +1,6 @@
 #include <unity.h>
 
-#include "epoch.h"
+#include "pcp/epoch.h"
 #include "runner.h"
 
 static void test_epoch_first_response_valid() {

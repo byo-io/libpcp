@@ -993,6 +993,93 @@ static void test_session_wakes_at_deadlines() {
   end();
 }
 
+// what a NAT-PMP-only server answers a PCP request with (RFC 6887 appendix A)
+static uint8_t const natpmp_unsupported_version[] = {0, 0, 0, 1, 0, 0, 0, 5};
+
+static void
+deliver_bytes(pcp_time_ms_t now, size_t size, uint8_t const data[size]) {
+  pcp_session_on_datagram(session, now, size, data);
+}
+
+static void
+expect_failed(pcp_time_ms_t now, pcp_handle_t handle, pcp_result_t result) {
+  auto const event = next_event(now);
+  TEST_ASSERT_EQUAL(PCP_EVENT_FAILED, event.type);
+  TEST_ASSERT_EQUAL_UINT16(handle, event.failed.handle);
+  TEST_ASSERT_EQUAL(result, event.failed.result);
+}
+
+static void test_session_other_version_fails_pending_mappings() {
+  begin(100);
+  auto const first = map();
+  auto const second = map();
+  TEST_ASSERT_EQUAL_size_t(2, send_due(0));
+
+  // it can't be matched to a request, but no request can succeed
+  deliver_bytes(10, sizeof(natpmp_unsupported_version),
+                natpmp_unsupported_version);
+  expect_failed(10, second, UNSUPP_VERSION);
+  expect_failed(10, first, UNSUPP_VERSION);
+  assert_idle(10);
+  end();
+}
+
+static void test_session_other_version_fails_active_mapping() {
+  begin(100);
+  auto const handle = map();
+  establish(handle, 0);
+  TEST_ASSERT_EQUAL_size_t(1, send_due(first_renewal));
+
+  // e.g. the router was replaced by one that only speaks NAT-PMP
+  deliver_bytes(first_renewal, sizeof(natpmp_unsupported_version),
+                natpmp_unsupported_version);
+  expect_failed(first_renewal, handle, UNSUPP_VERSION);
+  assert_idle(first_renewal);
+  end();
+}
+
+static void test_session_other_version_ends_delete() {
+  begin(100);
+  auto const handle = map();
+  establish(handle, 0);
+  pcp_session_release(session, handle);
+  TEST_ASSERT_EQUAL_size_t(1, send_due(1000));
+
+  // the server has nothing to delete, and released mappings report nothing
+  deliver_bytes(1500, sizeof(natpmp_unsupported_version),
+                natpmp_unsupported_version);
+  assert_idle(1500);
+  end();
+}
+
+static void test_session_later_version_fails_mappings() {
+  begin(100);
+  auto const handle = map();
+  TEST_ASSERT_EQUAL_size_t(1, send_due(0));
+
+  // a server that only speaks a future PCP version
+  uint8_t reply[24] = {3, 0x81, 0, UNSUPP_VERSION};
+  deliver_bytes(10, sizeof(reply), reply);
+  expect_failed(10, handle, UNSUPP_VERSION);
+  end();
+}
+
+static void test_session_other_version_needs_unsupp_version() {
+  begin(100);
+  map();
+  TEST_ASSERT_EQUAL_size_t(1, send_due(0));
+
+  // a NAT-PMP announcement says nothing about what the server speaks
+  uint8_t const announcement[] = {0, 128, 0, 0, 0, 0, 0, 5, 1, 2, 3, 4};
+  deliver_bytes(10, sizeof(announcement), announcement);
+  // nor does an error for another version that isn't UNSUPP_VERSION
+  uint8_t const refused[] = {0, 129, 0, 2, 0, 0, 0, 5};
+  deliver_bytes(10, sizeof(refused), refused);
+  TEST_ASSERT_EQUAL_size_t(0, send_due(10));
+  TEST_ASSERT_EQUAL_size_t(1, send_due(3000));
+  end();
+}
+
 void session_tests() {
   RUN_TEST(test_session_never_without_mappings);
   RUN_TEST(test_session_new_request_due_immediately);
@@ -1046,4 +1133,9 @@ void session_tests() {
   RUN_TEST(test_session_release_ignores_unknown_handle);
   RUN_TEST(test_session_release_twice_ignored);
   RUN_TEST(test_session_ignores_malformed_datagrams);
+  RUN_TEST(test_session_other_version_fails_pending_mappings);
+  RUN_TEST(test_session_other_version_fails_active_mapping);
+  RUN_TEST(test_session_other_version_ends_delete);
+  RUN_TEST(test_session_later_version_fails_mappings);
+  RUN_TEST(test_session_other_version_needs_unsupp_version);
 }

@@ -1,6 +1,6 @@
 #include "session.h"
 
-#include "wire.h"
+#include "pcp/wire.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -255,6 +255,13 @@ void pcp_session_release(pcp_session_t *session, pcp_handle_t handle) {
   pcp_mapping_release(mapping);
 }
 
+// fail every mapping, e.g. because the server can't make any of them
+static void pcp_session_abandon(pcp_session_t *session, pcp_result_t result) {
+  for (auto iter = session->mappings; iter; iter = iter->next) {
+    pcp_mapping_abandon(iter, result);
+  }
+}
+
 void pcp_session_on_datagram(pcp_session_t *session,
                              pcp_time_ms_t now,
                              size_t size,
@@ -262,8 +269,26 @@ void pcp_session_on_datagram(pcp_session_t *session,
   assert(session);
   assert(data);
 
-  auto const response =
-      pcp_packet_read_response((const_view_t){.size = size, .data = data});
+  // the header first, which every version shares, then the rest once it's
+  // known to be version 2
+  auto const header =
+      pcp_packet_read_header((const_view_t){.size = size, .data = data});
+  if (!header.has_value) {
+    return;
+  }
+  if (header.value.version != PCP_VERSION) {
+    // A server that doesn't speak version 2 answers UNSUPP_VERSION with the one
+    // it does, e.g. 0 for NAT-PMP (RFC 6887 section 9 and appendix A). Nothing
+    // can be mapped through it, so it's up to the application what to do next,
+    // like trying NAT-PMP. Anything else in another version says nothing about
+    // our requests.
+    if (header.value.result == UNSUPP_VERSION) {
+      pcp_session_abandon(session, UNSUPP_VERSION);
+    }
+    return;
+  }
+
+  auto const response = pcp_packet_read_response(&header.value);
   if (!response.has_value) {
     return;
   }

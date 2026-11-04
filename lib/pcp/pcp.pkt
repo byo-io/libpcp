@@ -82,7 +82,36 @@ message RequestOption {
 }
 
 // The request bodies followed by the options, which are skipped
-struct MapResponse {
+// Responses are parsed in two steps. First the header every version shares
+// (section 7.2, and NAT-PMP's per appendix A), so a server that doesn't speak
+// version 2 can still say which version it does. Then, for a version 2
+// response, the rest of it as the message for its opcode.
+message ResponseHeader max 1100 {
+  version: u8;
+  r: u1;
+  opcode: Opcode;
+  _: u8;
+  result: u8;
+  rest: u8[..];
+}
+
+// The rest of a version 2 response, after ResponseHeader. Each one starts with
+// the rest of the response header, repeated rather than nested so the fields
+// stay flat.
+
+// section 14.1, with only options after the header
+message AnnounceResponse {
+  lifetime: u32;
+  epoch: u32;
+  _: u8[12];
+  options: u8[..];
+}
+
+// section 11.1
+message MapResponse {
+  lifetime: u32;
+  epoch: u32;
+  _: u8[12];
   nonce: u8[12];
   protocol: u8;
   _: u8[3];
@@ -92,7 +121,11 @@ struct MapResponse {
   options: u8[..];
 }
 
-struct PeerResponse {
+// section 12.1
+message PeerResponse {
+  lifetime: u32;
+  epoch: u32;
+  _: u8[12];
   nonce: u8[12];
   protocol: u8;
   _: u8[3];
@@ -103,22 +136,4 @@ struct PeerResponse {
   _: u16;
   peer_ip: u8[16];
   options: u8[..];
-}
-
-// section 7.2. Anything but MAP and PEER (ANNOUNCE has no body) ends up in
-// body.unknown.
-message Response max 1100 {
-  version: u8 = 2;
-  r: u1 = 1;
-  opcode: Opcode;
-  _: u8;
-  result: u8;
-  lifetime: u32;
-  epoch: u32;
-  _: u8[12];
-  body: switch (opcode) {
-    MAP => MapResponse,
-    PEER => PeerResponse,
-    _ => u8[..],
-  };
 }

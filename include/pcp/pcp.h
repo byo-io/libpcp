@@ -264,6 +264,11 @@ pcp_event_t pcp_session_poll(pcp_session_t *session, pcp_time_ms_t now);
 /**
  * @brief Hand a datagram received from the PCP server to the session
  *
+ * If the server doesn't speak PCP version 2, its UNSUPP_VERSION answer fails
+ * every mapping with UNSUPP_VERSION. That includes routers that only speak
+ * NAT-PMP (RFC 6886), whose answer has version 0 (RFC 6887 appendix A), so the
+ * application can fall back to a NAT-PMP client on the same socket.
+ *
  * The application should poll the session afterwards, see pcp_session_poll.
  *
  * @param[in] session The session to update

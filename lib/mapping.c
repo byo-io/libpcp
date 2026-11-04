@@ -105,7 +105,7 @@ void pcp_mapping_init(pcp_mapping_t *mapping,
 
 // how responses are matched to requests (RFC 6887 sections 11.4 and 12.4)
 static bool pcp_mapping_matches(pcp_mapping_t const *mapping,
-                                struct pcp_response const *response) {
+                                pcp_response_t const *response) {
   auto const request = &mapping->request;
   if (response->opcode != request->opcode) {
     return false;
@@ -153,9 +153,8 @@ static socket_address_t pcp_mapping_copy_address(uint16_t *port,
 }
 
 // the address the server granted, which renewals and re-requests ask for again
-static socket_address_t
-pcp_mapping_granted(pcp_mapping_t *mapping,
-                    struct pcp_response const *response) {
+static socket_address_t pcp_mapping_granted(pcp_mapping_t *mapping,
+                                            pcp_response_t const *response) {
   assert(response->opcode == PCP_OPCODE_MAP ||
          response->opcode == PCP_OPCODE_PEER);
 
@@ -194,7 +193,7 @@ static bool pcp_result_is_temporary(pcp_result_t result) {
 }
 
 static void pcp_mapping_on_success(pcp_mapping_t *mapping,
-                                   struct pcp_response const *response,
+                                   pcp_response_t const *response,
                                    pcp_time_ms_t now,
                                    pcp_rng_t rng) {
   pcp_mapping_lease_t const lease = {
@@ -206,7 +205,7 @@ static void pcp_mapping_on_success(pcp_mapping_t *mapping,
 }
 
 static void pcp_mapping_on_temporary_error(pcp_mapping_t *mapping,
-                                           struct pcp_response const *response,
+                                           pcp_response_t const *response,
                                            pcp_time_ms_t now) {
   auto const not_before = now + pcp_seconds(response->lifetime);
 
@@ -226,7 +225,7 @@ static void pcp_mapping_on_temporary_error(pcp_mapping_t *mapping,
 }
 
 void pcp_mapping_on_response(pcp_mapping_t *mapping,
-                             struct pcp_response const *response,
+                             pcp_response_t const *response,
                              pcp_time_ms_t now,
                              pcp_rng_t rng) {
   assert(mapping);
@@ -269,6 +268,24 @@ void pcp_mapping_reset(pcp_mapping_t *mapping, pcp_time_ms_t not_before) {
     break;
   case RELEASING:
     // nothing left to delete
+    pcp_mapping_enter_released(mapping);
+    break;
+  case FAILED:
+  case RELEASED:
+    break;
+  }
+}
+
+void pcp_mapping_abandon(pcp_mapping_t *mapping, pcp_result_t result) {
+  assert(mapping);
+
+  switch (mapping->state.type) {
+  case PENDING:
+  case ACTIVE:
+    pcp_mapping_enter_failed(mapping, result);
+    break;
+  case RELEASING:
+    // the server can't have it
     pcp_mapping_enter_released(mapping);
     break;
   case FAILED:

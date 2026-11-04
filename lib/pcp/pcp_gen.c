@@ -401,10 +401,116 @@ size_t pcp_request_option_encoded_size(const struct pcp_request_option *in) {
     return pcp_request_option_size(in);
 }
 
-/* ---- struct MapResponse ------------------------------------------------- */
+/* ---- message ResponseHeader --------------------------------------------- */
+
+static bool pcp_response_header_read(struct pcp_rd *r,
+                                     struct pcp_response_header *out) {
+    PCP_CHECK(pcp_rd_u8(r, &out->version));
+    uint8_t bits1;
+    PCP_CHECK(pcp_rd_u8(r, &bits1));
+    out->r = (uint8_t)(bits1 >> 7);
+    out->opcode = (enum pcp_opcode)(bits1 & 0x7f);
+    PCP_CHECK(pcp_rd_skip(r, 1));
+    PCP_CHECK(pcp_rd_u8(r, &out->result));
+    return pcp_rd_rest(r, &out->rest);
+}
+
+static pcp_status pcp_response_header_write(
+    struct pcp_wr *w, const struct pcp_response_header *in) {
+    PCP_TRY(pcp_wr_u8(w, in->version));
+    if (in->r > 0x1)
+        return PCP_INVALID;
+    if (in->opcode > 0x7f)
+        return PCP_INVALID;
+    PCP_TRY(pcp_wr_u8(w, (uint8_t)(((uint8_t)in->r << 7) | in->opcode)));
+    PCP_TRY(pcp_wr_zero(w, 1));
+    PCP_TRY(pcp_wr_u8(w, in->result));
+    return pcp_wr_raw(w, in->rest.ptr, in->rest.len);
+}
+
+static size_t pcp_response_header_size(const struct pcp_response_header *in) {
+    return 4 + in->rest.len;
+}
+
+pcp_status pcp_response_header_decode(struct pcp_response_header *out,
+                                      const uint8_t *buf, size_t len) {
+    if (len > PCP_RESPONSE_HEADER_MAX_SIZE)
+        return PCP_INVALID;
+    struct pcp_rd r = { buf, len != 0 ? buf + len : buf };
+    /* The message must account for every byte of the input. */
+    if (!pcp_response_header_read(&r, out) || r.p != r.end)
+        return PCP_INVALID;
+    return PCP_OK;
+}
+
+pcp_status pcp_response_header_encode(const struct pcp_response_header *in,
+                                      uint8_t *buf, size_t cap,
+                                      size_t *written) {
+    if (pcp_response_header_size(in) > PCP_RESPONSE_HEADER_MAX_SIZE)
+        return PCP_INVALID;
+    struct pcp_wr w = { buf, cap != 0 ? buf + cap : buf };
+    PCP_TRY(pcp_response_header_write(&w, in));
+    *written = (size_t)(w.p - buf);
+    return PCP_OK;
+}
+
+size_t pcp_response_header_encoded_size(const struct pcp_response_header *in) {
+    return pcp_response_header_size(in);
+}
+
+/* ---- message AnnounceResponse ------------------------------------------- */
+
+static bool pcp_announce_response_read(struct pcp_rd *r,
+                                       struct pcp_announce_response *out) {
+    PCP_CHECK(pcp_rd_u32(r, &out->lifetime));
+    PCP_CHECK(pcp_rd_u32(r, &out->epoch));
+    PCP_CHECK(pcp_rd_skip(r, 12));
+    return pcp_rd_rest(r, &out->options);
+}
+
+static pcp_status pcp_announce_response_write(
+    struct pcp_wr *w, const struct pcp_announce_response *in) {
+    PCP_TRY(pcp_wr_u32(w, in->lifetime));
+    PCP_TRY(pcp_wr_u32(w, in->epoch));
+    PCP_TRY(pcp_wr_zero(w, 12));
+    return pcp_wr_raw(w, in->options.ptr, in->options.len);
+}
+
+static size_t pcp_announce_response_size(
+    const struct pcp_announce_response *in) {
+    return 20 + in->options.len;
+}
+
+pcp_status pcp_announce_response_decode(struct pcp_announce_response *out,
+                                        const uint8_t *buf, size_t len) {
+    struct pcp_rd r = { buf, len != 0 ? buf + len : buf };
+    /* The message must account for every byte of the input. */
+    if (!pcp_announce_response_read(&r, out) || r.p != r.end)
+        return PCP_INVALID;
+    return PCP_OK;
+}
+
+pcp_status pcp_announce_response_encode(const struct pcp_announce_response *in,
+                                        uint8_t *buf, size_t cap,
+                                        size_t *written) {
+    struct pcp_wr w = { buf, cap != 0 ? buf + cap : buf };
+    PCP_TRY(pcp_announce_response_write(&w, in));
+    *written = (size_t)(w.p - buf);
+    return PCP_OK;
+}
+
+size_t pcp_announce_response_encoded_size(
+    const struct pcp_announce_response *in) {
+    return pcp_announce_response_size(in);
+}
+
+/* ---- message MapResponse ------------------------------------------------ */
 
 static bool pcp_map_response_read(struct pcp_rd *r,
                                   struct pcp_map_response *out) {
+    PCP_CHECK(pcp_rd_u32(r, &out->lifetime));
+    PCP_CHECK(pcp_rd_u32(r, &out->epoch));
+    PCP_CHECK(pcp_rd_skip(r, 12));
     PCP_CHECK(pcp_rd_raw(r, out->nonce, 12));
     PCP_CHECK(pcp_rd_u8(r, &out->protocol));
     PCP_CHECK(pcp_rd_skip(r, 3));
@@ -416,6 +522,9 @@ static bool pcp_map_response_read(struct pcp_rd *r,
 
 static pcp_status pcp_map_response_write(struct pcp_wr *w,
                                          const struct pcp_map_response *in) {
+    PCP_TRY(pcp_wr_u32(w, in->lifetime));
+    PCP_TRY(pcp_wr_u32(w, in->epoch));
+    PCP_TRY(pcp_wr_zero(w, 12));
     PCP_TRY(pcp_wr_raw(w, in->nonce, 12));
     PCP_TRY(pcp_wr_u8(w, in->protocol));
     PCP_TRY(pcp_wr_zero(w, 3));
@@ -426,13 +535,37 @@ static pcp_status pcp_map_response_write(struct pcp_wr *w,
 }
 
 static size_t pcp_map_response_size(const struct pcp_map_response *in) {
-    return 36 + in->options.len;
+    return 56 + in->options.len;
 }
 
-/* ---- struct PeerResponse ------------------------------------------------ */
+pcp_status pcp_map_response_decode(struct pcp_map_response *out,
+                                   const uint8_t *buf, size_t len) {
+    struct pcp_rd r = { buf, len != 0 ? buf + len : buf };
+    /* The message must account for every byte of the input. */
+    if (!pcp_map_response_read(&r, out) || r.p != r.end)
+        return PCP_INVALID;
+    return PCP_OK;
+}
+
+pcp_status pcp_map_response_encode(const struct pcp_map_response *in,
+                                   uint8_t *buf, size_t cap, size_t *written) {
+    struct pcp_wr w = { buf, cap != 0 ? buf + cap : buf };
+    PCP_TRY(pcp_map_response_write(&w, in));
+    *written = (size_t)(w.p - buf);
+    return PCP_OK;
+}
+
+size_t pcp_map_response_encoded_size(const struct pcp_map_response *in) {
+    return pcp_map_response_size(in);
+}
+
+/* ---- message PeerResponse ----------------------------------------------- */
 
 static bool pcp_peer_response_read(struct pcp_rd *r,
                                    struct pcp_peer_response *out) {
+    PCP_CHECK(pcp_rd_u32(r, &out->lifetime));
+    PCP_CHECK(pcp_rd_u32(r, &out->epoch));
+    PCP_CHECK(pcp_rd_skip(r, 12));
     PCP_CHECK(pcp_rd_raw(r, out->nonce, 12));
     PCP_CHECK(pcp_rd_u8(r, &out->protocol));
     PCP_CHECK(pcp_rd_skip(r, 3));
@@ -447,6 +580,9 @@ static bool pcp_peer_response_read(struct pcp_rd *r,
 
 static pcp_status pcp_peer_response_write(struct pcp_wr *w,
                                           const struct pcp_peer_response *in) {
+    PCP_TRY(pcp_wr_u32(w, in->lifetime));
+    PCP_TRY(pcp_wr_u32(w, in->epoch));
+    PCP_TRY(pcp_wr_zero(w, 12));
     PCP_TRY(pcp_wr_raw(w, in->nonce, 12));
     PCP_TRY(pcp_wr_u8(w, in->protocol));
     PCP_TRY(pcp_wr_zero(w, 3));
@@ -460,101 +596,27 @@ static pcp_status pcp_peer_response_write(struct pcp_wr *w,
 }
 
 static size_t pcp_peer_response_size(const struct pcp_peer_response *in) {
-    return 56 + in->options.len;
+    return 76 + in->options.len;
 }
 
-/* ---- message Response --------------------------------------------------- */
-
-static bool pcp_response_body_read(struct pcp_rd *r,
-                                   struct pcp_response *out) {
-    switch (out->opcode) {
-    case PCP_OPCODE_MAP:
-        return pcp_map_response_read(r, &out->body.map_response);
-    case PCP_OPCODE_PEER:
-        return pcp_peer_response_read(r, &out->body.peer_response);
-    default:
-        return pcp_rd_rest(r, &out->body.unknown);
-    }
-}
-
-static pcp_status pcp_response_body_write(struct pcp_wr *w,
-                                          const struct pcp_response *in) {
-    switch (in->opcode) {
-    case PCP_OPCODE_MAP:
-        return pcp_map_response_write(w, &in->body.map_response);
-    case PCP_OPCODE_PEER:
-        return pcp_peer_response_write(w, &in->body.peer_response);
-    default:
-        return pcp_wr_raw(w, in->body.unknown.ptr, in->body.unknown.len);
-    }
-}
-
-static size_t pcp_response_body_size(const struct pcp_response *in) {
-    switch (in->opcode) {
-    case PCP_OPCODE_MAP:
-        return pcp_map_response_size(&in->body.map_response);
-    case PCP_OPCODE_PEER:
-        return pcp_peer_response_size(&in->body.peer_response);
-    default:
-        return in->body.unknown.len;
-    }
-}
-
-static bool pcp_response_read(struct pcp_rd *r, struct pcp_response *out) {
-    uint8_t bits0;
-    PCP_CHECK(pcp_rd_u8(r, &bits0));
-    PCP_CHECK(bits0 == 2);
-    uint8_t bits1;
-    PCP_CHECK(pcp_rd_u8(r, &bits1));
-    PCP_CHECK((bits1 >> 7) == 1);
-    out->opcode = (enum pcp_opcode)(bits1 & 0x7f);
-    PCP_CHECK(pcp_rd_skip(r, 1));
-    PCP_CHECK(pcp_rd_u8(r, &out->result));
-    PCP_CHECK(pcp_rd_u32(r, &out->lifetime));
-    PCP_CHECK(pcp_rd_u32(r, &out->epoch));
-    PCP_CHECK(pcp_rd_skip(r, 12));
-    return pcp_response_body_read(r, out);
-}
-
-static pcp_status pcp_response_write(struct pcp_wr *w,
-                                     const struct pcp_response *in) {
-    PCP_TRY(pcp_wr_u8(w, (uint8_t)(0x2)));
-    if (in->opcode > 0x7f)
-        return PCP_INVALID;
-    PCP_TRY(pcp_wr_u8(w, (uint8_t)(0x80 | in->opcode)));
-    PCP_TRY(pcp_wr_zero(w, 1));
-    PCP_TRY(pcp_wr_u8(w, in->result));
-    PCP_TRY(pcp_wr_u32(w, in->lifetime));
-    PCP_TRY(pcp_wr_u32(w, in->epoch));
-    PCP_TRY(pcp_wr_zero(w, 12));
-    return pcp_response_body_write(w, in);
-}
-
-static size_t pcp_response_size(const struct pcp_response *in) {
-    return 24 + pcp_response_body_size(in);
-}
-
-pcp_status pcp_response_decode(struct pcp_response *out, const uint8_t *buf,
-                               size_t len) {
-    if (len > PCP_RESPONSE_MAX_SIZE)
-        return PCP_INVALID;
+pcp_status pcp_peer_response_decode(struct pcp_peer_response *out,
+                                    const uint8_t *buf, size_t len) {
     struct pcp_rd r = { buf, len != 0 ? buf + len : buf };
     /* The message must account for every byte of the input. */
-    if (!pcp_response_read(&r, out) || r.p != r.end)
+    if (!pcp_peer_response_read(&r, out) || r.p != r.end)
         return PCP_INVALID;
     return PCP_OK;
 }
 
-pcp_status pcp_response_encode(const struct pcp_response *in, uint8_t *buf,
-                               size_t cap, size_t *written) {
-    if (pcp_response_size(in) > PCP_RESPONSE_MAX_SIZE)
-        return PCP_INVALID;
+pcp_status pcp_peer_response_encode(const struct pcp_peer_response *in,
+                                    uint8_t *buf, size_t cap,
+                                    size_t *written) {
     struct pcp_wr w = { buf, cap != 0 ? buf + cap : buf };
-    PCP_TRY(pcp_response_write(&w, in));
+    PCP_TRY(pcp_peer_response_write(&w, in));
     *written = (size_t)(w.p - buf);
     return PCP_OK;
 }
 
-size_t pcp_response_encoded_size(const struct pcp_response *in) {
-    return pcp_response_size(in);
+size_t pcp_peer_response_encoded_size(const struct pcp_peer_response *in) {
+    return pcp_peer_response_size(in);
 }

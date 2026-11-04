@@ -2,8 +2,8 @@
 
 #include <pcp/pcp.h>
 
+#include "pcp/wire.h"
 #include "schedule.h"
-#include "wire.h"
 
 /**
  * @brief What the server granted
@@ -76,7 +76,7 @@ void pcp_mapping_init(pcp_mapping_t *mapping,
  * @brief Handle a server response. Responses for other mappings are ignored.
  */
 void pcp_mapping_on_response(pcp_mapping_t *mapping,
-                             struct pcp_response const *response,
+                             pcp_response_t const *response,
                              pcp_time_ms_t now,
                              pcp_rng_t rng);
 
@@ -86,6 +86,14 @@ void pcp_mapping_on_response(pcp_mapping_t *mapping,
  * @param[in] not_before When to send the request, 0 for straight away
  */
 void pcp_mapping_reset(pcp_mapping_t *mapping, pcp_time_ms_t not_before);
+
+/**
+ * @brief Give up on the mapping because the server can't make it, e.g. it
+ *        doesn't speak our version
+ *
+ * The FAILED event follows unless it was already released.
+ */
+void pcp_mapping_abandon(pcp_mapping_t *mapping, pcp_result_t result);
 
 /**
  * @brief Release the mapping

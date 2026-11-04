@@ -30,6 +30,9 @@ renewals without waiting for anything.
 - Retransmissions with exponential backoff and jitter
 - Lease renewals, keeping the same external address when possible
 - Detecting server restarts, including unsolicited ANNOUNCE messages
+- Failing mappings with `UNSUPP_VERSION` when the server doesn't speak PCP
+  version 2, e.g. a router that only speaks NAT-PMP, so the application can
+  fall back
 - Deleting mappings when the application releases them
 - No allocations after a mapping is created, a custom allocator can be
   plugged in
