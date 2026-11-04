@@ -1,6 +1,5 @@
 #include <pcp/ip.h>
 
-#include <assert.h>
 #include <inttypes.h>
 #include <unity.h>
 
@@ -26,7 +25,8 @@ static void test_ip_address_from_in6_addr() {
 
 static void test_ip_address_ntop_ipv4() {
   struct in_addr loopback = {0};
-  assert(1 == inet_pton(AF_INET, "127.0.0.1", &loopback));
+  // not assert(), which Release builds compile out along with the call
+  TEST_ASSERT_EQUAL_INT(1, inet_pton(AF_INET, "127.0.0.1", &loopback));
   auto ip = ip_address_from_in_addr(&loopback);
 
   char string[INET_ADDRSTRLEN + 1];
