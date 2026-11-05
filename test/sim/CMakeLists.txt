@@ -1,23 +1,16 @@
-# The application side of the simulated world, nothing uses it yet
-add_library(sim_client OBJECT client.c)
+# The client end to end in a simulated world (see sim.h). It gets no access to
+# the library's private headers, so it can only do what an application can. The
+# exception is the simulated server, which shares the generated wire format.
+pcp_add_test_executable(sim_tests
+  client.c
+  main.c
+  network.c
+  observer.c
+  scenarios.c
+  server.c
+  sim.c)
 
-target_link_libraries(sim_client PRIVATE pcp pcp_warnings)
-
-# What carries datagrams in the simulated world, nothing uses it yet either
-add_library(sim_network OBJECT network.c)
-
-target_link_libraries(sim_network PRIVATE pcp unity pcp_warnings)
-
-# A PCP server for the simulated world, nothing uses it yet either. Unlike the
-# rest it shares the library's generated wire format.
-add_library(sim_server OBJECT server.c)
-
-target_link_libraries(sim_server PRIVATE pcp unity pcp_warnings)
+target_link_libraries(sim_tests PRIVATE pcp_warnings)
 
 set_source_files_properties(server.c
   PROPERTIES INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/lib/pcp)
-
-# What checks the simulated application's view, nothing uses it yet either
-add_library(sim_observer OBJECT observer.c)
-
-target_link_libraries(sim_observer PRIVATE pcp unity pcp_warnings)
