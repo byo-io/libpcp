@@ -46,6 +46,7 @@ function(pcp_add_test_executable target)
 endfunction()
 
 add_subdirectory(unit)
+add_subdirectory(sim)
 
 # Checks that every packet the generated code decodes encodes back to the same
 # bytes, and that every message it builds decodes again. Run it with
