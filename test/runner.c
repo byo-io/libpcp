@@ -2,15 +2,6 @@
 
 #include <string.h>
 
-void setUp() {}
-void tearDown() {}
-
-extern void epoch_tests();
-extern void ip_tests();
-extern void schedule_tests();
-extern void session_tests();
-extern void wire_tests();
-
 static const char *selected_test;
 static size_t matched_tests;
 
@@ -34,21 +25,4 @@ void test_runner_run(UnityTestFunction function, const char *name, int line) {
 
 bool test_runner_selected_test_found() {
   return !selected_test || matched_tests == 1;
-}
-
-int main(int argc, char *argv[]) {
-  if (!test_runner_init(argc, argv)) {
-    return 2;
-  }
-
-  UNITY_BEGIN();
-
-  ip_tests();
-  epoch_tests();
-  schedule_tests();
-  session_tests();
-  wire_tests();
-
-  int const result = UNITY_END();
-  return test_runner_selected_test_found() ? result : 2;
 }

@@ -6,53 +6,47 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(unity)
 
-add_executable(tests)
+# A test executable built from sources in the calling directory, plus the runner
+# they all share
+function(pcp_add_test_executable target)
+  add_executable(${target} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/runner.c ${ARGN})
 
-target_sources(tests
-  PRIVATE
-    epoch.c
-    ip.c
-    runner.c
-    schedule.c
-    session.c
-    wire.c)
-
-target_link_libraries(tests
-  PRIVATE
-    pcp
-    unity)
-
-target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/lib)
-
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
-  target_compile_options(tests
+  target_link_libraries(${target}
     PRIVATE
-      -fsanitize=address
-      -fno-omit-frame-pointer)
-  target_link_options(tests PRIVATE -fsanitize=address)
-elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-  target_compile_options(tests PRIVATE /fsanitize=address PRIVATE /Zi)
-else()
-  message(WARNING "ASan not configured for compiler: ${CMAKE_C_COMPILER_ID}")
-endif()
+      pcp
+      unity)
 
-# one ctest test per RUN_TEST(...) in the test sources, so tests only need to
-# be registered in their file's *_tests() function
-get_target_property(TEST_SOURCES tests SOURCES)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${TEST_SOURCES})
+  target_include_directories(${target}
+    PRIVATE
+      ${CMAKE_CURRENT_FUNCTION_LIST_DIR})
 
-set(TEST_CASES)
-foreach(source IN LISTS TEST_SOURCES)
-  file(STRINGS ${source} lines REGEX "^ *RUN_TEST\\([a-z0-9_]+\\);")
-  foreach(line IN LISTS lines)
-    string(REGEX REPLACE "^ *RUN_TEST\\(([a-z0-9_]+)\\);.*" "\\1" test_case "${line}")
-    list(APPEND TEST_CASES ${test_case})
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    target_compile_options(${target}
+      PRIVATE
+        -fsanitize=address
+        -fno-omit-frame-pointer)
+    target_link_options(${target} PRIVATE -fsanitize=address)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(${target} PRIVATE /fsanitize=address PRIVATE /Zi)
+  else()
+    message(WARNING "ASan not configured for compiler: ${CMAKE_C_COMPILER_ID}")
+  endif()
+
+  # one ctest test per RUN_TEST(...) in the test sources, so tests only need to
+  # be registered in their file's *_tests() function
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARGN})
+
+  foreach(source IN LISTS ARGN)
+    file(STRINGS ${source} lines REGEX "RUN_TEST\\([a-z0-9_]+\\);")
+    foreach(line IN LISTS lines)
+      string(REGEX REPLACE ".*RUN_TEST\\(([a-z0-9_]+)\\);.*" "\\1" test_case "${line}")
+      add_test(NAME ${test_case} COMMAND ${target} ${test_case})
+    endforeach()
   endforeach()
-endforeach()
+endfunction()
 
-foreach(test_case IN LISTS TEST_CASES)
-  add_test(NAME ${test_case} COMMAND tests ${test_case})
-endforeach()
+add_subdirectory(unit)
+add_subdirectory(sim)
 
 # Checks that every packet the generated code decodes encodes back to the same
 # bytes, and that every message it builds decodes again. Run it with

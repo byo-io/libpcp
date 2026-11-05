@@ -1,0 +1,310 @@
+#include "sim.h"
+
+#include <inttypes.h>
+#include <stdio.h>
+#include <unity.h>
+
+#include "client.h"
+#include "network.h"
+#include "observer.h"
+
+static constexpr size_t SIM_MAX_TRACE = 1024;
+// more events than this at one point in time means the client is spinning
+static constexpr size_t SIM_MAX_EVENTS_PER_RUN = 1024;
+static constexpr sim_duration_ms_t SIM_LATENCY = 10;
+
+static_assert(PCP_PACKET_MAX_SIZE <= SIM_NETWORK_MAX_DATAGRAM_SIZE);
+
+// one line of the timeline printed after a failure
+typedef struct sim_trace_entry {
+  pcp_time_ms_t at;
+  char const *what;
+  uint64_t value;
+  bool has_address;
+  socket_address_t address;
+} sim_trace_entry_t;
+
+static struct {
+  bool running;
+  uint64_t seed;
+  uint64_t rng_state;
+  pcp_time_ms_t started;
+  pcp_time_ms_t now;
+  ip_address_t local;
+
+  sim_client_t client;
+  sim_observer_t observer;
+  sim_server_t server;
+  sim_network_t network;
+
+  pcp_optional_time_ms_t deadline; // from the client's last run
+  size_t events_this_run;
+
+  size_t trace_count;
+  sim_trace_entry_t trace[SIM_MAX_TRACE];
+} sim;
+
+// splitmix64, small and independent of the platform's rand()
+static uint64_t sim_random() {
+  sim.rng_state += 0x9E3779B97F4A7C15;
+  uint64_t value = sim.rng_state;
+  value = (value ^ (value >> 30)) * 0xBF58476D1CE4E5B9;
+  value = (value ^ (value >> 27)) * 0x94D049BB133111EB;
+  return value ^ (value >> 31);
+}
+
+static bool sim_rng_fill(void * /*ctx*/, size_t size, uint8_t data[size]) {
+  for (size_t i = 0; i < size; ++i) {
+    data[i] = (uint8_t)sim_random();
+  }
+  return true;
+}
+
+static void sim_trace_address(char const *what,
+                              uint64_t value,
+                              socket_address_t const *address) {
+  auto const entry = &sim.trace[sim.trace_count++ % SIM_MAX_TRACE];
+  *entry = (sim_trace_entry_t){
+      .at = sim.now,
+      .what = what,
+      .value = value,
+  };
+  if (address) {
+    entry->has_address = true;
+    entry->address = *address;
+  }
+}
+
+static void sim_trace(char const *what, uint64_t value) {
+  sim_trace_address(what, value, nullptr);
+}
+
+static void sim_print_trace() {
+  printf("\nseed %" PRIu64 ", timeline in seconds since the start:\n",
+         sim.seed);
+
+  auto const count =
+      sim.trace_count < SIM_MAX_TRACE ? sim.trace_count : SIM_MAX_TRACE;
+  if (count < sim.trace_count) {
+    printf("  (%zu older entries dropped)\n", sim.trace_count - count);
+  }
+
+  for (size_t i = sim.trace_count - count; i < sim.trace_count; ++i) {
+    auto const entry = &sim.trace[i % SIM_MAX_TRACE];
+    auto const elapsed = entry->at - sim.started;
+    printf("  %8" PRIu64 ".%03" PRIu64 "  %s %" PRIu64, elapsed / 1000,
+           elapsed % 1000, entry->what, entry->value);
+    if (entry->has_address) {
+      char address[SOCKET_ADDRESS_STRING_LENGTH];
+      socket_address_to_string(sizeof(address), address, &entry->address);
+      printf(" at %s", address);
+    }
+    printf("\n");
+  }
+}
+
+static void sim_count_event() {
+  TEST_ASSERT_LESS_THAN_size_t_MESSAGE(
+      SIM_MAX_EVENTS_PER_RUN, sim.events_this_run,
+      "the client keeps producing events without time passing");
+  ++sim.events_this_run;
+}
+
+// the client's io, connecting it to the rest of the world
+
+static void
+sim_on_client_send(void * /*ctx*/, size_t size, uint8_t const data[size]) {
+  sim_count_event();
+  sim_trace("client sent, bytes", size);
+  TEST_ASSERT_LESS_OR_EQUAL_size_t_MESSAGE(PCP_PACKET_MAX_SIZE, size,
+                                           "datagram over 1100 bytes");
+  sim_network_send(&sim.network, sim.now, SIM_ENDPOINT_SERVER, size, data);
+}
+
+static void sim_on_client_event(void * /*ctx*/, pcp_event_t const *event) {
+  sim_count_event();
+
+  switch (event->type) {
+  case PCP_EVENT_MAPPED:
+    sim_trace_address("application got MAPPED, handle", event->mapped.handle,
+                      &event->mapped.external);
+    break;
+  case PCP_EVENT_UNMAPPED:
+    sim_trace("application got UNMAPPED, handle", event->unmapped.handle);
+    break;
+  case PCP_EVENT_FAILED:
+    sim_trace("application got FAILED, result", event->failed.result);
+    break;
+  case PCP_EVENT_SEND:
+  case PCP_EVENT_TIMEOUT:
+    break;
+  }
+
+  sim_observer_on_event(&sim.observer, event);
+}
+
+static void sim_deliver_to_server(sim_datagram_t const *datagram) {
+  auto const reply = sim_server_on_datagram(&sim.server, sim.now, sim.local,
+                                            datagram->size, datagram->data);
+  sim_trace("server got request, lifetime", reply.requested_lifetime);
+  sim_trace("server responded, result", reply.result);
+  sim_network_send(&sim.network, sim.now, SIM_ENDPOINT_CLIENT, reply.size,
+                   reply.data);
+}
+
+static void sim_deliver_due() {
+  sim_datagram_t datagram;
+  while (sim_network_receive(&sim.network, sim.now, &datagram)) {
+    switch (datagram.to) {
+    case SIM_ENDPOINT_SERVER:
+      sim_deliver_to_server(&datagram);
+      break;
+    case SIM_ENDPOINT_CLIENT:
+      pcp_session_on_datagram(sim.client.session, sim.now, datagram.size,
+                              datagram.data);
+      break;
+    }
+  }
+}
+
+static void sim_run_client() {
+  sim.events_this_run = 0;
+  sim.deadline = sim_client_run(&sim.client, sim.now);
+  if (sim.deadline.has_value) {
+    TEST_ASSERT_GREATER_THAN_UINT64_MESSAGE(
+        sim.now, sim.deadline.value, "the deadline has to be in the future");
+  }
+}
+
+// the first moment something can happen, `until` at the latest
+static pcp_time_ms_t sim_next_time(pcp_time_ms_t until) {
+  auto next = until;
+  if (sim.deadline.has_value && sim.deadline.value < next) {
+    next = sim.deadline.value;
+  }
+
+  pcp_time_ms_t arrival = 0;
+  if (sim_network_next_arrival(&sim.network, &arrival) && arrival < next) {
+    next = arrival;
+  }
+  return next;
+}
+
+void sim_begin(sim_config_t config) {
+  sim_end();
+
+  sim.running = true;
+  sim.seed = config.seed;
+  sim.rng_state = config.seed;
+  sim.trace_count = 0;
+  sim.deadline = (pcp_optional_time_ms_t){.has_value = false, .value = 0};
+
+  // any origin works for the client's clock, see pcp_time_ms_t
+  sim.started = sim_random() >> 24;
+  sim.now = sim.started;
+
+  sim.local = ip_address_from_octets(10, 0, 0, 2);
+  sim_network_begin(&sim.network, SIM_LATENCY);
+  sim_server_begin(&sim.server, ip_address_from_octets(203, 0, 113, 7),
+                   sim.now);
+  sim_observer_begin(&sim.observer);
+
+  TEST_ASSERT_TRUE(sim_client_begin(&sim.client, sim.local,
+                                    (pcp_rng_t){.fill = sim_rng_fill},
+                                    (sim_io_t){
+                                        .send = sim_on_client_send,
+                                        .on_event = sim_on_client_event,
+                                    }));
+}
+
+void sim_end() {
+  if (!sim.running) {
+    return;
+  }
+
+  pcp_session_end(sim.client.session);
+  sim.running = false;
+}
+
+void sim_teardown() {
+  if (sim.running && Unity.CurrentTestFailed) {
+    sim_print_trace();
+  }
+  sim_end();
+}
+
+void sim_run_for(sim_duration_ms_t duration) {
+  auto const until = sim.now + duration;
+  while (true) {
+    sim_deliver_due();
+    sim_run_client();
+    if (sim.now == until) {
+      return;
+    }
+    sim.now = sim_next_time(until);
+  }
+}
+
+pcp_handle_t
+sim_map(pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port) {
+  auto const handle = pcp_session_map_request(sim.client.session, lifetime,
+                                              protocol, port, 0, nullptr);
+  TEST_ASSERT_TRUE_MESSAGE(handle.has_value, "the map request failed");
+
+  sim_observer_on_request(&sim.observer, handle.value, protocol, port);
+  sim_trace("application requested mapping, handle", handle.value);
+  return handle.value;
+}
+
+void sim_release(pcp_handle_t handle) {
+  sim_trace("application released mapping, handle", handle);
+  pcp_session_release(sim.client.session, handle);
+  sim_observer_on_release(&sim.observer, handle);
+}
+
+socket_address_t sim_external(pcp_handle_t handle) {
+  auto const mapping = sim_observer_find(&sim.observer, handle);
+  TEST_ASSERT_EQUAL_MESSAGE(SIM_OBSERVED_MAPPED, mapping->state,
+                            "the application has no address for this handle");
+  return mapping->external;
+}
+
+sim_server_stats_t sim_stats() { return sim.server.stats; }
+
+void sim_assert_mapped(pcp_handle_t handle) {
+  auto const mapping = sim_observer_find(&sim.observer, handle);
+  TEST_ASSERT_EQUAL_MESSAGE(SIM_OBSERVED_MAPPED, mapping->state,
+                            "the application doesn't think it's mapped");
+
+  auto const lease = sim_server_find_lease(&sim.server, sim.now,
+                                           mapping->protocol, mapping->port);
+  TEST_ASSERT_NOT_NULL_MESSAGE(lease, "the server has no lease for it");
+  TEST_ASSERT_EQUAL_MESSAGE(
+      0, socket_address_cmp(&lease->external, &mapping->external),
+      "the application and server disagree on the address");
+}
+
+void sim_assert_no_lease(pcp_handle_t handle) {
+  auto const mapping = sim_observer_find(&sim.observer, handle);
+  TEST_ASSERT_NULL_MESSAGE(sim_server_find_lease(&sim.server, sim.now,
+                                                 mapping->protocol,
+                                                 mapping->port),
+                           "the server still has a lease for it");
+}
+
+void sim_assert_idle() {
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(0, sim_network_in_flight(&sim.network),
+                                   "datagrams in flight");
+  TEST_ASSERT_FALSE_MESSAGE(sim.deadline.has_value,
+                            "the client still has something scheduled");
+}
+
+void sim_assert_events(pcp_handle_t handle,
+                       size_t count,
+                       int const events[count]) {
+  auto const mapping = sim_observer_find(&sim.observer, handle);
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(count, mapping->event_count,
+                                   "wrong number of events");
+  TEST_ASSERT_EQUAL_INT_ARRAY_MESSAGE(events, mapping->events, count,
+                                      "wrong events");
+}
