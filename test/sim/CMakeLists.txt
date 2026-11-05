@@ -16,3 +16,8 @@ target_link_libraries(sim_server PRIVATE pcp unity pcp_warnings)
 
 set_source_files_properties(server.c
   PROPERTIES INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/lib/pcp)
+
+# What checks the simulated application's view, nothing uses it yet either
+add_library(sim_observer OBJECT observer.c)
+
+target_link_libraries(sim_observer PRIVATE pcp unity pcp_warnings)
