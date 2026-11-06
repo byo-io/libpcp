@@ -28,7 +28,7 @@ typedef struct sim_config {
 /**
  * @brief Start a world
  */
-void sim_begin(sim_config_t config);
+void sim_start(sim_config_t config);
 
 /**
  * @brief Tear the world down. Safe to call without one.

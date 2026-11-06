@@ -165,7 +165,7 @@ static size_t write_response(pcp_result_t result,
   return size;
 }
 
-void sim_server_begin(sim_server_t *server,
+void sim_server_start(sim_server_t *server,
                       ip_address_t external_ip,
                       pcp_time_ms_t now) {
   *server = (sim_server_t){

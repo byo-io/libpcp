@@ -190,7 +190,7 @@ static pcp_time_ms_t sim_next_time(pcp_time_ms_t until) {
   return next;
 }
 
-void sim_begin(sim_config_t config) {
+void sim_start(sim_config_t config) {
   sim_end();
 
   sim.running = true;
@@ -204,12 +204,12 @@ void sim_begin(sim_config_t config) {
   sim.now = sim.started;
 
   sim.local = ip_address_from_octets(10, 0, 0, 2);
-  sim_network_begin(&sim.network, SIM_LATENCY);
-  sim_server_begin(&sim.server, ip_address_from_octets(203, 0, 113, 7),
+  sim_network_start(&sim.network, SIM_LATENCY);
+  sim_server_start(&sim.server, ip_address_from_octets(203, 0, 113, 7),
                    sim.now);
-  sim_observer_begin(&sim.observer);
+  sim_observer_start(&sim.observer);
 
-  TEST_ASSERT_TRUE(sim_client_begin(&sim.client, sim.local,
+  TEST_ASSERT_TRUE(sim_client_start(&sim.client, sim.local,
                                     (pcp_rng_t){.fill = sim_rng_fill},
                                     (sim_io_t){
                                         .send = sim_on_client_send,

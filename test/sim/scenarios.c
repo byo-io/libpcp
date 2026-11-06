@@ -9,7 +9,7 @@ static constexpr uint64_t SEEDS = 16;
 static void full_lifecycle(uint64_t seed) {
   static constexpr pcp_time_s_t lifetime = 3600;
 
-  sim_begin((sim_config_t){.seed = seed});
+  sim_start((sim_config_t){.seed = seed});
   auto const handle = sim_map(lifetime, UDP, 1234);
 
   sim_run_for(SIM_SECOND);
