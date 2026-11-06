@@ -24,7 +24,7 @@ typedef struct sim_client {
 /**
  * @returns Whether the session could be created, for pcp_session_end to end
  */
-bool sim_client_begin(sim_client_t *client,
+bool sim_client_start(sim_client_t *client,
                       ip_address_t local,
                       pcp_rng_t rng,
                       sim_io_t io);

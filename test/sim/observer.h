@@ -28,7 +28,7 @@ typedef struct sim_observer {
   sim_observed_mapping_t mappings[SIM_OBSERVER_MAX_MAPPINGS];
 } sim_observer_t;
 
-void sim_observer_begin(sim_observer_t *observer);
+void sim_observer_start(sim_observer_t *observer);
 
 /**
  * @brief The application requested a mapping and got `handle` for it

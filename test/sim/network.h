@@ -30,7 +30,7 @@ typedef struct sim_network {
   sim_datagram_t datagrams[SIM_NETWORK_MAX_IN_FLIGHT];
 } sim_network_t;
 
-void sim_network_begin(sim_network_t *network, sim_duration_ms_t latency);
+void sim_network_start(sim_network_t *network, sim_duration_ms_t latency);
 
 void sim_network_send(sim_network_t *network,
                       pcp_time_ms_t now,

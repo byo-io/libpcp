@@ -27,7 +27,7 @@ record_event(sim_observer_t *observer, pcp_handle_t handle, int type) {
   return mapping;
 }
 
-void sim_observer_begin(sim_observer_t *observer) {
+void sim_observer_start(sim_observer_t *observer) {
   observer->mapping_count = 0;
 }
 

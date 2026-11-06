@@ -15,7 +15,7 @@ static size_t next_datagram(sim_network_t const *network) {
   return next;
 }
 
-void sim_network_begin(sim_network_t *network, sim_duration_ms_t latency) {
+void sim_network_start(sim_network_t *network, sim_duration_ms_t latency) {
   network->latency = latency;
   network->in_flight = 0;
 }
