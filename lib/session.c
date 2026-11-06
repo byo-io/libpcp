@@ -276,13 +276,15 @@ void pcp_session_on_datagram(pcp_session_t *session,
   if (!header.has_value) {
     return;
   }
+
   if (header.value.version != PCP_VERSION) {
     // A server that doesn't speak version 2 answers UNSUPP_VERSION with the one
-    // it does, e.g. 0 for NAT-PMP (RFC 6887 section 9 and appendix A). Nothing
-    // can be mapped through it, so it's up to the application what to do next,
-    // like trying NAT-PMP. Anything else in another version says nothing about
-    // our requests.
-    if (header.value.result == UNSUPP_VERSION) {
+    // it does (e.g. 0 for NAT-PMP). Nothing can be mapped through it, so it's
+    // up to the application what to do next. Anything else in another version
+    // says nothing about our requests, including what isn't a response. The
+    // exception is NAT-PMP's answer, which has no R bit.
+    if ((header.value.version == 0 || header.value.r == 1) &&
+        header.value.result == UNSUPP_VERSION) {
       pcp_session_abandon(session, UNSUPP_VERSION);
     }
     return;
