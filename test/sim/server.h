@@ -21,7 +21,7 @@ static constexpr size_t SIM_SERVER_RESPONSE_SIZE = 60;
  *        normally
  */
 typedef struct sim_server_decision {
-  /// Answer with this error instead, if it's not SUCCESS
+  /// Answer with this error instead, if it's not PCP_RESULT_SUCCESS
   pcp_result_t refuse;
   /// How long the error lasts if refusing, otherwise the most to grant, with 0
   /// for whatever is requested

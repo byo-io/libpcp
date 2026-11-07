@@ -194,10 +194,10 @@ static socket_address_t pcp_mapping_granted(pcp_mapping_t *mapping,
 // errors worth retrying later, the lifetime says when
 static bool pcp_result_is_temporary(pcp_result_t result) {
   switch (result) {
-  case NETWORK_FAILURE:
-  case NO_RESOURCES:
-  case USER_EX_QUOTA:
-  case CANNOT_PROVIDE_EXTERNAL:
+  case PCP_RESULT_NETWORK_FAILURE:
+  case PCP_RESULT_NO_RESOURCES:
+  case PCP_RESULT_USER_EX_QUOTA:
+  case PCP_RESULT_CANNOT_PROVIDE_EXTERNAL:
     return true;
   default:
     return false;
@@ -255,7 +255,7 @@ void pcp_mapping_on_response(pcp_mapping_t *mapping,
   }
 
   auto const result = (pcp_result_t)response->result;
-  if (result == SUCCESS) {
+  if (result == PCP_RESULT_SUCCESS) {
     pcp_mapping_on_success(mapping, response, now, rng);
   } else if (pcp_result_is_temporary(result)) {
     pcp_mapping_on_temporary_error(mapping, response, now);

@@ -22,7 +22,7 @@ static struct pcp_request map_request(socket_address_t external) {
       .opcode = PCP_OPCODE_MAP,
       .body.map_body =
           {
-              .protocol = UDP,
+              .protocol = PCP_PROTOCOL_UDP,
               .internal_port = 12345,
               .external_port = external.port,
           },
@@ -40,7 +40,7 @@ static struct pcp_request peer_request(socket_address_t external,
       .opcode = PCP_OPCODE_PEER,
       .body.peer_body =
           {
-              .protocol = TCP,
+              .protocol = PCP_PROTOCOL_TCP,
               .internal_port = 12345,
               .external_port = external.port,
               .peer_port = peer.port,
@@ -160,13 +160,13 @@ static void test_wire_peer_request() {
 }
 
 static pcp_option_t const third_party = {
-    .type = THIRD_PARTY,
+    .type = PCP_OPTION_THIRD_PARTY,
     .third_party = {.internal = {.addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF,
                                           0xFF, 192, 168, 1, 50}}},
 };
 
 static pcp_option_t const filter = {
-    .type = FILTER,
+    .type = PCP_OPTION_FILTER,
     .filter = {.peers = {.address = {.addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                               0xFF, 0xFF, 198, 51, 100, 0}},
                          .prefix = 120},
@@ -287,12 +287,12 @@ static void test_wire_read_map_response() {
   auto const response = &read.value;
 
   TEST_ASSERT_EQUAL(PCP_OPCODE_MAP, response->opcode);
-  TEST_ASSERT_EQUAL(SUCCESS, response->result);
+  TEST_ASSERT_EQUAL(PCP_RESULT_SUCCESS, response->result);
   TEST_ASSERT_EQUAL_UINT32(7200, response->lifetime);
   TEST_ASSERT_EQUAL_UINT32(1000, response->epoch);
 
   auto const map = &response->body.map_response;
-  TEST_ASSERT_EQUAL(UDP, map->protocol);
+  TEST_ASSERT_EQUAL(PCP_PROTOCOL_UDP, map->protocol);
   TEST_ASSERT_EQUAL_UINT16(12345, map->internal_port);
 
   auto const external = ip_address_from_octets(203, 0, 113, 7);
@@ -320,7 +320,7 @@ static void test_wire_read_peer_response() {
 
   TEST_ASSERT_EQUAL(PCP_OPCODE_PEER, response->opcode);
   auto const body = &response->body.peer_response;
-  TEST_ASSERT_EQUAL(TCP, body->protocol);
+  TEST_ASSERT_EQUAL(PCP_PROTOCOL_TCP, body->protocol);
   TEST_ASSERT_EQUAL_UINT16(12345, body->internal_port);
   TEST_ASSERT_EQUAL_UINT16(54321, body->external_port);
   TEST_ASSERT_EQUAL_UINT8_ARRAY(nonce, body->nonce, sizeof(nonce));
@@ -345,7 +345,7 @@ static void test_wire_read_announce_response() {
   TEST_ASSERT_TRUE(read.has_value);
   auto const response = &read.value;
   TEST_ASSERT_EQUAL(PCP_OPCODE_ANNOUNCE, response->opcode);
-  TEST_ASSERT_EQUAL(SUCCESS, response->result);
+  TEST_ASSERT_EQUAL(PCP_RESULT_SUCCESS, response->result);
   TEST_ASSERT_EQUAL_UINT32(0, response->lifetime);
   TEST_ASSERT_EQUAL_UINT32(5, response->epoch);
 }
@@ -363,14 +363,14 @@ static void test_wire_read_announce_response_skips_options() {
 static void test_wire_read_error_response() {
   uint8_t data[sizeof(map_response)];
   memcpy(data, map_response, sizeof(data));
-  data[3] = NO_RESOURCES;
+  data[3] = PCP_RESULT_NO_RESOURCES;
   data[4] = data[5] = data[6] = 0;
   data[7] = 30; // retry after 30s
 
   auto const read = read_response(sizeof(data), data);
   TEST_ASSERT_TRUE(read.has_value);
   auto const response = &read.value;
-  TEST_ASSERT_EQUAL(NO_RESOURCES, response->result);
+  TEST_ASSERT_EQUAL(PCP_RESULT_NO_RESOURCES, response->result);
   TEST_ASSERT_EQUAL_UINT32(30, response->lifetime);
 }
 
@@ -431,14 +431,14 @@ static void test_wire_read_header_any_version() {
   auto header = read_header(sizeof(natpmp), natpmp);
   TEST_ASSERT_TRUE(header.has_value);
   TEST_ASSERT_EQUAL_UINT8(0, header.value.version);
-  TEST_ASSERT_EQUAL_UINT8(UNSUPP_VERSION, header.value.result);
+  TEST_ASSERT_EQUAL_UINT8(PCP_RESULT_UNSUPP_VERSION, header.value.result);
 
   // too short for a whole response
   uint8_t const pcp[] = {2, 129, 0, 1, 0, 0, 0, 0};
   header = read_header(sizeof(pcp), pcp);
   TEST_ASSERT_TRUE(header.has_value);
   TEST_ASSERT_EQUAL_UINT8(2, header.value.version);
-  TEST_ASSERT_EQUAL_UINT8(UNSUPP_VERSION, header.value.result);
+  TEST_ASSERT_EQUAL_UINT8(PCP_RESULT_UNSUPP_VERSION, header.value.result);
 }
 
 static void test_wire_read_header_rejects_truncated() {

@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
       .ip =
           ip_address_is_ipv4(&local.ip) ? ip_address_any_v4 : ip_address_any_v6,
   };
-  auto const handle =
-      pcp_session_map_request(session, 1024, UDP, 12345, external, 0, nullptr);
+  auto const handle = pcp_session_map_request(session, 1024, PCP_PROTOCOL_UDP,
+                                              12345, external, 0, nullptr);
   if (!handle.has_value) {
     fprintf(stderr, "pcp_session_map_request: %s\n", strerror(handle.error));
     return EXIT_FAILURE;

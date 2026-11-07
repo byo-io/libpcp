@@ -10,12 +10,12 @@
 static struct pcp_request_option pcp_packet_option(pcp_option_t const *src) {
   struct pcp_request_option result = {0};
   switch (src->type) {
-  case THIRD_PARTY:
+  case PCP_OPTION_THIRD_PARTY:
     result.code = PCP_OPTION_CODE_THIRD_PARTY;
     memcpy(result.body.third_party.internal_ip, src->third_party.internal.addr,
            sizeof(result.body.third_party.internal_ip));
     break;
-  case FILTER:
+  case PCP_OPTION_FILTER:
     result.code = PCP_OPTION_CODE_FILTER;
     result.body.filter.prefix = src->filter.peers.prefix;
     result.body.filter.peer_port = src->filter.port;
@@ -31,7 +31,7 @@ static struct pcp_request_option pcp_packet_option(pcp_option_t const *src) {
 // one and still answers SUCCESS.
 static bool pcp_option_included(struct pcp_request const *request,
                                 pcp_option_t const *option) {
-  return option->type != FILTER || request->lifetime > 0;
+  return option->type != PCP_OPTION_FILTER || request->lifetime > 0;
 }
 
 size_t pcp_packet_request_size(struct pcp_request const *request,

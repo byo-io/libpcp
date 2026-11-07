@@ -44,8 +44,8 @@ static void end() {
 static socket_address_t const any_external = {.ip = ip_address_any_v4};
 
 static pcp_handle_t map_suggesting(socket_address_t external) {
-  auto const handle =
-      pcp_session_map_request(session, 3600, UDP, 1234, external, 0, nullptr);
+  auto const handle = pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP,
+                                              1234, external, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);
   return handle.value;
 }
@@ -227,7 +227,7 @@ static void deliver(pcp_time_ms_t now,
 
 // a response that doesn't belong to any mapping
 static void receive_response(pcp_time_ms_t now, pcp_time_s_t epoch) {
-  deliver(now, epoch, nullptr, SUCCESS, 0, nullptr);
+  deliver(now, epoch, nullptr, PCP_RESULT_SUCCESS, 0, nullptr);
 }
 
 // an unsolicited ANNOUNCE from the server
@@ -241,14 +241,14 @@ announce(pcp_time_ms_t now, pcp_time_s_t epoch, pcp_result_t result) {
 // tells the session the server's epoch time without changing anything else, as
 // long as it's consistent with what the session knows
 static void learn_epoch(pcp_time_ms_t now, pcp_time_s_t epoch) {
-  announce(now, epoch, SUCCESS);
+  announce(now, epoch, PCP_RESULT_SUCCESS);
 }
 
 // a response to `handle`'s request with this epoch time, which only matters if
 // the epoch reveals a restart
 static void
 respond_with_epoch(pcp_handle_t handle, pcp_time_ms_t now, pcp_time_s_t epoch) {
-  deliver(now, epoch, mapping_of(handle), SUCCESS, 3600, nullptr);
+  deliver(now, epoch, mapping_of(handle), PCP_RESULT_SUCCESS, 3600, nullptr);
 }
 
 // the server's answer to `handle`'s request, with an epoch time that stays
@@ -300,7 +300,7 @@ static void test_session_server_reset_requests_again() {
 // gets `handle` mapped by the server and checks the application learns that
 static void establish(pcp_handle_t handle, pcp_time_ms_t now) {
   TEST_ASSERT_EQUAL_size_t(1, send_due(now));
-  respond(handle, now, SUCCESS, 3600);
+  respond(handle, now, PCP_RESULT_SUCCESS, 3600);
 
   auto const event = next_event(now);
   TEST_ASSERT_EQUAL(PCP_EVENT_MAPPED, event.type);
@@ -327,7 +327,7 @@ static void test_session_success_maps() {
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
-  respond(handle, 500, SUCCESS, 3600);
+  respond(handle, 500, PCP_RESULT_SUCCESS, 3600);
 
   auto const event = next_event(500);
   TEST_ASSERT_EQUAL(PCP_EVENT_MAPPED, event.type);
@@ -365,7 +365,7 @@ static void test_session_renewal_keeps_address() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(first_renewal));
 
   // nothing changed for the application, the lease just starts over
-  respond(handle, 1801000, SUCCESS, 3600);
+  respond(handle, 1801000, PCP_RESULT_SUCCESS, 3600);
   TEST_ASSERT_EQUAL_size_t(0, send_due(1801000));
   TEST_ASSERT_EQUAL_UINT64(1801000 + first_renewal, deadline);
   end();
@@ -379,7 +379,7 @@ static void test_session_renewal_changes_address() {
 
   granted = (socket_address_t){.ip = ip_address_from_octets(203, 0, 113, 8),
                                .port = 40000};
-  respond(handle, 1801000, SUCCESS, 3600);
+  respond(handle, 1801000, PCP_RESULT_SUCCESS, 3600);
 
   auto const event = next_event(1801000);
   TEST_ASSERT_EQUAL(PCP_EVENT_MAPPED, event.type);
@@ -401,7 +401,7 @@ static void test_session_renewal_temporary_error_keeps_mapping() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(first_renewal));
 
   // the lease is still valid, so the address is too. Just renew later
-  respond(handle, 1801000, NO_RESOURCES, 1200);
+  respond(handle, 1801000, PCP_RESULT_NO_RESOURCES, 1200);
   TEST_ASSERT_EQUAL_size_t(0, send_due(1801000));
   TEST_ASSERT_EQUAL_UINT64(3001000, deadline);
   TEST_ASSERT_EQUAL_size_t(1, send_due(3001000));
@@ -414,12 +414,12 @@ static void test_session_renewal_refused_fails() {
   establish(handle, 0);
   TEST_ASSERT_EQUAL_size_t(1, send_due(first_renewal));
 
-  respond(handle, 1801000, NOT_AUTHORIZED, 0);
+  respond(handle, 1801000, PCP_RESULT_NOT_AUTHORIZED, 0);
 
   auto const event = next_event(1801000);
   TEST_ASSERT_EQUAL(PCP_EVENT_FAILED, event.type);
   TEST_ASSERT_EQUAL_UINT16(handle, event.failed.handle);
-  TEST_ASSERT_EQUAL(NOT_AUTHORIZED, event.failed.result);
+  TEST_ASSERT_EQUAL(PCP_RESULT_NOT_AUTHORIZED, event.failed.result);
   end();
 }
 
@@ -451,7 +451,7 @@ static void test_session_temporary_error_retries_later() {
   TEST_ASSERT_EQUAL_UINT64(3000, deadline);
 
   // the server asks us to wait 30s, which the application doesn't hear about
-  respond(handle, 500, NO_RESOURCES, 30);
+  respond(handle, 500, PCP_RESULT_NO_RESOURCES, 30);
   TEST_ASSERT_EQUAL_size_t(0, send_due(500));
   TEST_ASSERT_EQUAL_UINT64(30500, deadline);
   TEST_ASSERT_EQUAL_size_t(0, send_due(30499));
@@ -467,12 +467,12 @@ static void test_session_permanent_error_fails() {
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
-  respond(handle, 500, NOT_AUTHORIZED, 0);
+  respond(handle, 500, PCP_RESULT_NOT_AUTHORIZED, 0);
 
   auto event = next_event(500);
   TEST_ASSERT_EQUAL(PCP_EVENT_FAILED, event.type);
   TEST_ASSERT_EQUAL_UINT16(handle, event.failed.handle);
-  TEST_ASSERT_EQUAL(NOT_AUTHORIZED, event.failed.result);
+  TEST_ASSERT_EQUAL(PCP_RESULT_NOT_AUTHORIZED, event.failed.result);
 
   // nothing left to do for it, ever, so it's freed without being released
   assert_idle(500);
@@ -501,7 +501,7 @@ static void test_session_response_matches_its_mapping_only() {
   rng_value = 100; // and no jitter again
   TEST_ASSERT_EQUAL_size_t(2, send_due(0));
 
-  respond(second, 500, SUCCESS, 3600);
+  respond(second, 500, PCP_RESULT_SUCCESS, 3600);
 
   auto const event = next_event(500);
   TEST_ASSERT_EQUAL(PCP_EVENT_MAPPED, event.type);
@@ -512,7 +512,7 @@ static void test_session_response_matches_its_mapping_only() {
   TEST_ASSERT_EQUAL_UINT64(3000, deadline);
   TEST_ASSERT_EQUAL_size_t(1, send_due(3000));
 
-  respond(first, 3500, SUCCESS, 3600);
+  respond(first, 3500, PCP_RESULT_SUCCESS, 3600);
   TEST_ASSERT_EQUAL_UINT16(first, next_event(3500).mapped.handle);
   end();
 }
@@ -523,16 +523,18 @@ static void test_session_peer_response_must_match_remote_peer() {
                                        ip_address_from_octets(198, 51, 100, 1),
                                    .port = 443};
   auto const handle = pcp_session_peer_request(
-      session, 3600, TCP, 1234, any_external, remote, 0, nullptr);
+      session, 3600, PCP_PROTOCOL_TCP, 1234, any_external, remote, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
   // same nonce, protocol and port, but a different remote peer
   socket_address_t const other = {.ip = remote.ip, .port = 444};
-  deliver(500, 1000, mapping_of(handle.value), SUCCESS, 3600, &other);
+  deliver(500, 1000, mapping_of(handle.value), PCP_RESULT_SUCCESS, 3600,
+          &other);
   TEST_ASSERT_EQUAL_size_t(0, send_due(500));
 
-  deliver(600, 1000, mapping_of(handle.value), SUCCESS, 3600, nullptr);
+  deliver(600, 1000, mapping_of(handle.value), PCP_RESULT_SUCCESS, 3600,
+          nullptr);
   TEST_ASSERT_EQUAL(PCP_EVENT_MAPPED, next_event(600).type);
   end();
 }
@@ -544,7 +546,7 @@ static void test_session_duplicate_response_ignored() {
 
   // e.g. the answer to a retransmission of the same request, which is just
   // like a renewal that kept the address
-  respond(handle, 1000, SUCCESS, 3600);
+  respond(handle, 1000, PCP_RESULT_SUCCESS, 3600);
   TEST_ASSERT_EQUAL(PCP_EVENT_TIMEOUT, next_event(1000).type);
   end();
 }
@@ -584,8 +586,8 @@ static void test_session_peer_suggests_given_address() {
   socket_address_t const remote = {.ip =
                                        ip_address_from_octets(198, 51, 100, 1),
                                    .port = 443};
-  TEST_ASSERT_TRUE(pcp_session_peer_request(session, 3600, TCP, 1234, external,
-                                            remote, 0, nullptr)
+  TEST_ASSERT_TRUE(pcp_session_peer_request(session, 3600, PCP_PROTOCOL_TCP,
+                                            1234, external, remote, 0, nullptr)
                        .has_value);
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
@@ -670,7 +672,7 @@ static void test_session_server_reset_before_mapped_event() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
   // granted, but the server restarts before the application polls
-  respond(handle, 500, SUCCESS, 3600);
+  respond(handle, 500, PCP_RESULT_SUCCESS, 3600);
   respond_with_epoch(handle, 1000, 3);
 
   // the application never saw the address, so neither MAPPED nor UNMAPPED
@@ -687,7 +689,7 @@ static void test_session_server_reset_recovered_before_poll() {
   // application polls, so as far as it's concerned nothing changed
   learn_epoch(1000, 1001);
   respond_with_epoch(handle, 2000, 3);
-  deliver(3000, 4, mapping_of(handle), SUCCESS, 3600, nullptr);
+  deliver(3000, 4, mapping_of(handle), PCP_RESULT_SUCCESS, 3600, nullptr);
 
   TEST_ASSERT_EQUAL_size_t(0, send_due(3000));
   TEST_ASSERT_EQUAL_UINT64(3000 + first_renewal, deadline);
@@ -702,7 +704,7 @@ static void test_session_server_reset_new_address_before_poll() {
   learn_epoch(1000, 1001);
   respond_with_epoch(handle, 2000, 3);
   granted.port = 40000;
-  deliver(3000, 4, mapping_of(handle), SUCCESS, 3600, nullptr);
+  deliver(3000, 4, mapping_of(handle), PCP_RESULT_SUCCESS, 3600, nullptr);
 
   // only the net change: the new address, without UNMAPPED before it
   auto const event = next_event(3000);
@@ -720,7 +722,7 @@ static void test_session_response_revealing_reset_not_applied() {
 
   // matches the request, but its epoch says the server lost its state, so it
   // might as well be stale
-  deliver(1000, 3, mapping_of(handle), SUCCESS, 3600, nullptr);
+  deliver(1000, 3, mapping_of(handle), PCP_RESULT_SUCCESS, 3600, nullptr);
   TEST_ASSERT_EQUAL_size_t(1, send_due(1000));
   end();
 }
@@ -737,7 +739,7 @@ static void test_session_unmatched_response_ignored() {
   TEST_ASSERT_EQUAL_UINT64(first_renewal, deadline);
 
   // nor is it what the next real response is compared with
-  respond(handle, 2000, SUCCESS, 3600);
+  respond(handle, 2000, PCP_RESULT_SUCCESS, 3600);
   TEST_ASSERT_EQUAL_size_t(0, send_due(2000));
   TEST_ASSERT_EQUAL_UINT64(2000 + first_renewal, deadline);
   end();
@@ -751,7 +753,7 @@ static void test_session_announce_consistent_epoch_ignored() {
   auto const handle = map();
   establish(handle, 0);
 
-  announce(10000, 1010, SUCCESS);
+  announce(10000, 1010, PCP_RESULT_SUCCESS);
   TEST_ASSERT_EQUAL_size_t(0, send_due(10000));
   TEST_ASSERT_EQUAL_UINT64(first_renewal, deadline);
   end();
@@ -763,7 +765,7 @@ static void test_session_announce_reset_unmaps_then_waits() {
   establish(handle, 0);
 
   rng_value = announce_delay_half;
-  announce(1000, 0, SUCCESS);
+  announce(1000, 0, PCP_RESULT_SUCCESS);
 
   // the application learns straight away, the request waits for the delay
   auto const event = next_event(1000);
@@ -787,7 +789,7 @@ static void test_session_announce_reset_delays_pending_mapping() {
   learn_epoch(500, 1000);
 
   rng_value = announce_delay_half;
-  announce(1000, 3, SUCCESS);
+  announce(1000, 3, PCP_RESULT_SUCCESS);
   TEST_ASSERT_EQUAL_size_t(0, send_due(1000));
   TEST_ASSERT_EQUAL_UINT64(3500, deadline);
   TEST_ASSERT_EQUAL_size_t(1, send_due(3500));
@@ -800,7 +802,7 @@ static void test_session_announce_error_still_resets() {
   establish(handle, 0);
 
   // every response carries the server's epoch, whatever its result
-  announce(1000, 3, NO_RESOURCES);
+  announce(1000, 3, PCP_RESULT_NO_RESOURCES);
   TEST_ASSERT_EQUAL(PCP_EVENT_UNMAPPED, next_event(1000).type);
   end();
 }
@@ -829,7 +831,7 @@ static void test_session_release_deletes_active_mapping() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(1000));
   assert_sent_delete();
 
-  respond(handle, 1500, SUCCESS, 0);
+  respond(handle, 1500, PCP_RESULT_SUCCESS, 0);
   assert_idle(1500);
   end();
 }
@@ -861,7 +863,7 @@ static void test_session_release_error_not_retried() {
 
   // the server asks not to repeat the request for a while, so the lease is
   // left to run out
-  respond(handle, 1500, NO_RESOURCES, 30);
+  respond(handle, 1500, PCP_RESULT_NO_RESOURCES, 30);
   assert_idle(1500);
   end();
 }
@@ -892,7 +894,7 @@ static void test_session_release_drops_owed_event() {
   begin(100);
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
-  respond(handle, 500, SUCCESS, 3600);
+  respond(handle, 500, PCP_RESULT_SUCCESS, 3600);
 
   // granted, but released before the application learned about it
   pcp_session_release(session, handle);
@@ -907,7 +909,7 @@ static void test_session_release_peer_not_deleted() {
                                        ip_address_from_octets(198, 51, 100, 1),
                                    .port = 443};
   auto const handle = pcp_session_peer_request(
-      session, 3600, TCP, 1234, any_external, remote, 0, nullptr);
+      session, 3600, PCP_PROTOCOL_TCP, 1234, any_external, remote, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);
   establish(handle.value, 0);
 
@@ -921,7 +923,7 @@ static void test_session_release_failed_mapping() {
   begin(100);
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
-  respond(handle, 500, NOT_AUTHORIZED, 0);
+  respond(handle, 500, PCP_RESULT_NOT_AUTHORIZED, 0);
   TEST_ASSERT_EQUAL(PCP_EVENT_FAILED, next_event(500).type);
 
   pcp_session_release(session, handle);
@@ -933,7 +935,7 @@ static void test_session_release_before_failed_event() {
   begin(100);
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
-  respond(handle, 500, NOT_AUTHORIZED, 0);
+  respond(handle, 500, PCP_RESULT_NOT_AUTHORIZED, 0);
 
   // refused, but released before the application heard about it
   pcp_session_release(session, handle);
@@ -971,18 +973,18 @@ static void test_session_options_must_fit_into_packet() {
   pcp_option_t options[50] = {};
   for (size_t i = 0; i < 50; ++i) {
     options[i] = (pcp_option_t){
-        .type = FILTER,
+        .type = PCP_OPTION_FILTER,
         .filter = {.peers = {.address = {}, .prefix = 128}, .port = 0}};
   }
 
   // 60 bytes of MAP and 50 filters of 24 bytes
-  auto const handle = pcp_session_map_request(session, 3600, UDP, 1234,
-                                              any_external, 50, options);
+  auto const handle = pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP,
+                                              1234, any_external, 50, options);
   TEST_ASSERT_FALSE(handle.has_value);
   TEST_ASSERT_EQUAL(EMSGSIZE, handle.error);
 
-  TEST_ASSERT_TRUE(pcp_session_map_request(session, 3600, UDP, 1234,
-                                           any_external, 40, options)
+  TEST_ASSERT_TRUE(pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP,
+                                           1234, any_external, 40, options)
                        .has_value);
   end();
 }
@@ -1020,7 +1022,7 @@ static void test_session_release_twice_ignored() {
   pcp_session_release(session, handle);
   pcp_session_release(session, handle);
   TEST_ASSERT_EQUAL_size_t(1, send_due(500));
-  respond(handle, 500, SUCCESS, 0);
+  respond(handle, 500, PCP_RESULT_SUCCESS, 0);
 
   // and once the mapping is freed
   assert_idle(500);
@@ -1083,8 +1085,8 @@ static void test_session_other_version_fails_pending_mappings() {
   // it can't be matched to a request, but no request can succeed
   deliver_bytes(10, sizeof(natpmp_unsupported_version),
                 natpmp_unsupported_version);
-  expect_failed(10, second, UNSUPP_VERSION);
-  expect_failed(10, first, UNSUPP_VERSION);
+  expect_failed(10, second, PCP_RESULT_UNSUPP_VERSION);
+  expect_failed(10, first, PCP_RESULT_UNSUPP_VERSION);
   assert_idle(10);
   end();
 }
@@ -1098,7 +1100,7 @@ static void test_session_other_version_fails_active_mapping() {
   // e.g. the router was replaced by one that only speaks NAT-PMP
   deliver_bytes(first_renewal, sizeof(natpmp_unsupported_version),
                 natpmp_unsupported_version);
-  expect_failed(first_renewal, handle, UNSUPP_VERSION);
+  expect_failed(first_renewal, handle, PCP_RESULT_UNSUPP_VERSION);
   assert_idle(first_renewal);
   end();
 }
@@ -1123,9 +1125,9 @@ static void test_session_later_version_fails_mappings() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
   // a server that only speaks a future PCP version
-  uint8_t reply[24] = {3, 0x81, 0, UNSUPP_VERSION};
+  uint8_t reply[24] = {3, 0x81, 0, PCP_RESULT_UNSUPP_VERSION};
   deliver_bytes(10, sizeof(reply), reply);
-  expect_failed(10, handle, UNSUPP_VERSION);
+  expect_failed(10, handle, PCP_RESULT_UNSUPP_VERSION);
   end();
 }
 

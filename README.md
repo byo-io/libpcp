@@ -31,9 +31,9 @@ renewals without waiting for anything.
 - Suggesting an external address and port, or just an address family
 - Lease renewals, keeping the same external address when possible
 - Detecting server restarts, including unsolicited ANNOUNCE messages
-- Failing mappings with `UNSUPP_VERSION` when the server doesn't speak PCP
-  version 2, e.g. a router that only speaks NAT-PMP, so the application can
-  fall back
+- Failing mappings with `PCP_RESULT_UNSUPP_VERSION` when the server doesn't
+  speak PCP version 2, e.g. a router that only speaks NAT-PMP, so the
+  application can fall back
 - Deleting mappings when the application releases them
 - No allocations after a mapping is created, a custom allocator can be
   plugged in
@@ -53,7 +53,7 @@ pcp_session_t *session = pcp_session_begin((pcp_config_t){
 });
 
 auto const handle =
-    pcp_session_map_request(session, 3600, UDP, 12345,
+    pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP, 12345,
                             // any external port, on an IPv4 address
                             (socket_address_t){.ip = ip_address_any_v4},
                             0, nullptr);

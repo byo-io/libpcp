@@ -78,7 +78,7 @@ map(sim_t *sim, pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port) {
 
 // a mapping the server has granted, with some time left until its renewal
 static pcp_handle_t map_and_settle(sim_t *sim) {
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
   sim_run_for(sim, SIM_SECOND);
   sim_assert_mapped(sim, handle);
   return handle;
@@ -127,7 +127,7 @@ SCENARIO(test_sim_heavy_loss) {
   sim_start(sim);
   sim_set_network_behavior(sim,
                            SIM_RANDOM_FAULTS(sim->seed, .loss_percent = 30));
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
 
   // a lease can run out at this rate, but never for good
   sim_run_for(sim, 24 * SIM_HOUR);
@@ -168,7 +168,7 @@ SCENARIO(test_sim_duplicates_and_reordering) {
 SCENARIO(test_sim_outage_before_mapping) {
   sim_start(sim);
   sim_set_network_behavior(sim, SIM_NETWORK_DOWN);
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
 
   sim_run_for(sim, SIM_HOUR);
   sim_assert_no_events(sim, handle);
@@ -330,7 +330,7 @@ SCENARIO(test_sim_server_grants_less_than_requested) {
 
   sim_start(sim);
   sim_set_server_behavior(sim, SIM_SERVER_GRANTS_AT_MOST(granted));
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
   sim_run_for(sim, SIM_SECOND);
   sim_assert_mapped(sim, handle);
 
@@ -350,8 +350,9 @@ SCENARIO(test_sim_temporary_error_on_request) {
   static constexpr pcp_time_s_t retry_after = 30;
 
   sim_start(sim);
-  sim_set_server_behavior(sim, SIM_SERVER_REFUSES(NO_RESOURCES, retry_after));
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  sim_set_server_behavior(
+      sim, SIM_SERVER_REFUSES(PCP_RESULT_NO_RESOURCES, retry_after));
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
 
   // doesn't try again until the error's lifetime is up
   sim_run_for(sim, 20 * SIM_SECOND);
@@ -369,7 +370,8 @@ SCENARIO(test_sim_temporary_error_on_renewal) {
   auto const external = sim_external(sim, handle);
 
   sim_run_for(sim, BEFORE_RENEWAL);
-  sim_set_server_behavior(sim, SIM_SERVER_REFUSES(NO_RESOURCES, 600));
+  sim_set_server_behavior(sim,
+                          SIM_SERVER_REFUSES(PCP_RESULT_NO_RESOURCES, 600));
   sim_run_for(sim, 15 * SIM_MINUTE);
   TEST_ASSERT_GREATER_THAN_size_t(0, sim_stats(sim).refused);
 
@@ -384,11 +386,12 @@ SCENARIO(test_sim_temporary_error_on_renewal) {
 
 SCENARIO(test_sim_permanent_error_on_request) {
   sim_start(sim);
-  sim_set_server_behavior(sim, SIM_SERVER_REFUSES(NOT_AUTHORIZED, 0));
-  auto const handle = map(sim, LIFETIME, UDP, PORT);
+  sim_set_server_behavior(sim,
+                          SIM_SERVER_REFUSES(PCP_RESULT_NOT_AUTHORIZED, 0));
+  auto const handle = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
 
   sim_run_for(sim, SIM_MINUTE);
-  sim_assert_failed(sim, handle, NOT_AUTHORIZED);
+  sim_assert_failed(sim, handle, PCP_RESULT_NOT_AUTHORIZED);
   SIM_ASSERT_EVENTS(sim, handle, PCP_EVENT_FAILED);
   sim_assert_no_lease(sim, handle);
   sim_assert_idle(sim);
@@ -399,10 +402,11 @@ SCENARIO(test_sim_permanent_error_on_renewal) {
   auto const handle = start_mapped(sim);
 
   sim_run_for(sim, BEFORE_RENEWAL);
-  sim_set_server_behavior(sim, SIM_SERVER_REFUSES(NOT_AUTHORIZED, 0));
+  sim_set_server_behavior(sim,
+                          SIM_SERVER_REFUSES(PCP_RESULT_NOT_AUTHORIZED, 0));
   sim_run_for(sim, 15 * SIM_MINUTE);
 
-  sim_assert_failed(sim, handle, NOT_AUTHORIZED);
+  sim_assert_failed(sim, handle, PCP_RESULT_NOT_AUTHORIZED);
   SIM_ASSERT_EVENTS(sim, handle, PCP_EVENT_MAPPED, PCP_EVENT_FAILED);
   sim_assert_idle(sim);
 }
@@ -415,7 +419,7 @@ static sim_server_decision_t answer_like_natpmp(void * /*ctx*/,
                                                 port_t /*internal_port*/) {
   return (sim_server_decision_t){
       .reply_size = 8,
-      .reply = {0, 0, 0, UNSUPP_VERSION},
+      .reply = {0, 0, 0, PCP_RESULT_UNSUPP_VERSION},
   };
 }
 
@@ -423,14 +427,14 @@ SCENARIO(test_sim_natpmp_only_router) {
   sim_start(sim);
   sim_set_server_behavior(
       sim, (sim_server_behavior_t){.on_request = answer_like_natpmp});
-  auto const first = map(sim, LIFETIME, UDP, PORT);
-  auto const second = map(sim, LIFETIME, TCP, PORT);
+  auto const first = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
+  auto const second = map(sim, LIFETIME, PCP_PROTOCOL_TCP, PORT);
 
   // one answer is enough to give up on all of them, for the application to fall
   // back to NAT-PMP
   sim_run_for(sim, SIM_MINUTE);
-  sim_assert_failed(sim, first, UNSUPP_VERSION);
-  sim_assert_failed(sim, second, UNSUPP_VERSION);
+  sim_assert_failed(sim, first, PCP_RESULT_UNSUPP_VERSION);
+  sim_assert_failed(sim, second, PCP_RESULT_UNSUPP_VERSION);
   sim_assert_idle(sim);
 }
 
@@ -438,9 +442,9 @@ SCENARIO(test_sim_same_port_requested_twice) {
   auto const first = start_mapped(sim);
 
   // the server binds a mapping to the nonce that created it
-  auto const second = map(sim, LIFETIME, UDP, PORT);
+  auto const second = map(sim, LIFETIME, PCP_PROTOCOL_UDP, PORT);
   sim_run_for(sim, SIM_MINUTE);
-  sim_assert_failed(sim, second, NOT_AUTHORIZED);
+  sim_assert_failed(sim, second, PCP_RESULT_NOT_AUTHORIZED);
 
   sim_run_for(sim, SIM_HOUR);
   sim_assert_mapped(sim, first);
@@ -508,7 +512,8 @@ SCENARIO(test_sim_ignores_other_version_without_response_bit) {
 
   // looks like UNSUPP_VERSION from another version, but isn't a response, which
   // has to be dropped before looking at any of that (RFC 6887 section 8.3)
-  sim_inject(sim, 4, (uint8_t const[]){0x47, 0x00, 0x00, UNSUPP_VERSION});
+  sim_inject(sim, 4,
+             (uint8_t const[]){0x47, 0x00, 0x00, PCP_RESULT_UNSUPP_VERSION});
 
   sim_run_for(sim, SIM_SECOND);
   sim_assert_mapped(sim, handle);
@@ -537,8 +542,8 @@ SCENARIO(test_sim_ignores_forged_response_with_old_epoch) {
   // its epoch would say the server restarted, which only a response to one of
   // our requests can (RFC 6887 section 8.3)
   uint8_t data[SIM_SERVER_RESPONSE_SIZE];
-  auto const size =
-      sim_server_forge_response(&sim->server, sim->now, UDP, PORT, data);
+  auto const size = sim_server_forge_response(&sim->server, sim->now,
+                                              PCP_PROTOCOL_UDP, PORT, data);
   memset(data + 8, 0, 4);
   sim_inject(sim, size, data);
 
@@ -590,8 +595,8 @@ SCENARIO(test_sim_many_mappings) {
   sim_start(sim);
   pcp_handle_t handles[count];
   for (size_t i = 0; i < count; ++i) {
-    handles[i] =
-        map(sim, (pcp_time_s_t)(600 * (i + 1)), UDP, (port_t)(1000 + i));
+    handles[i] = map(sim, (pcp_time_s_t)(600 * (i + 1)), PCP_PROTOCOL_UDP,
+                     (port_t)(1000 + i));
   }
 
   sim_run_for(sim, SIM_HOUR);
