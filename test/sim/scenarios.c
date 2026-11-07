@@ -3,6 +3,34 @@
 #include "runner.h"
 #include "sim.h"
 
+// Scenarios for the client in a simulated world (see sim.h). Each one is a
+// short script: set up the world, act like an application, let time pass, and
+// check what the application and the server ended up with.
+//
+//   SCENARIO(test_sim_releases_its_mapping) {
+//     auto const handle = start_mapped(sim);
+//     sim_run_for(sim, SIM_HOUR);
+//
+//     sim_client_release(&sim->client, handle);
+//     sim_run_for(sim, SIM_SECOND);
+//     sim_assert_no_lease(sim, handle);
+//   }
+//
+// and a RUN_TEST for it at the bottom of this file. It runs once for each of
+// SEEDS seeds, and prints the timeline of the first seed and of any that fail.
+// To watch one, run e.g. ./build/test/sim/sim_tests test_sim_full_lifecycle
+//
+// What a scenario has to work with:
+//
+// - The world: sim_start, or start_mapped to begin with a granted mapping.
+//   sim_run_for lets time pass.
+// - The application: map, or sim_client_map for the library's whole result,
+//   and sim_client_release.
+// - Checks: sim_assert_mapped, sim_assert_no_lease, sim_assert_idle,
+//   SIM_ASSERT_EVENTS, and the counts in sim_stats.
+//
+// Use sim->seed for anything random, so that every seed is different.
+
 // jitter, nonces and network faults come from the seed, so go through a few
 static constexpr uint64_t SEEDS = 16;
 
