@@ -255,6 +255,17 @@ void pcp_session_release(pcp_session_t *session, pcp_handle_t handle) {
   pcp_mapping_release(mapping);
 }
 
+// whether `response` answers any request still waiting on one
+static bool pcp_session_awaits(pcp_session_t const *session,
+                               pcp_response_t const *response) {
+  for (auto iter = session->mappings; iter; iter = iter->next) {
+    if (pcp_mapping_awaits(iter, response)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // fail every mapping, e.g. because the server can't make any of them
 static void pcp_session_abandon(pcp_session_t *session, pcp_result_t result) {
   for (auto iter = session->mappings; iter; iter = iter->next) {
@@ -292,6 +303,15 @@ void pcp_session_on_datagram(pcp_session_t *session,
 
   auto const response = pcp_packet_read_response(&header.value);
   if (!response.has_value) {
+    return;
+  }
+
+  // Only a response to one of our requests says anything about the server's
+  // state (RFC 6887 section 8.3), or an ANNOUNCE, which isn't a response to
+  // anything. Otherwise a forged response, or one for a mapping that's gone,
+  // could reset every mapping.
+  if (response.value.opcode != PCP_OPCODE_ANNOUNCE &&
+      !pcp_session_awaits(session, &response.value)) {
     return;
   }
 

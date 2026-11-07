@@ -225,6 +225,27 @@ static void receive_response(pcp_time_ms_t now, pcp_time_s_t epoch) {
   deliver(now, epoch, nullptr, SUCCESS, 0, nullptr);
 }
 
+// an unsolicited ANNOUNCE from the server
+static void
+announce(pcp_time_ms_t now, pcp_time_s_t epoch, pcp_result_t result) {
+  uint8_t data[24] = {0x02, 0x80, 0x00, result};
+  write_uint32(data + 8, epoch);
+  pcp_session_on_datagram(session, now, sizeof(data), data);
+}
+
+// tells the session the server's epoch time without changing anything else, as
+// long as it's consistent with what the session knows
+static void learn_epoch(pcp_time_ms_t now, pcp_time_s_t epoch) {
+  announce(now, epoch, SUCCESS);
+}
+
+// a response to `handle`'s request with this epoch time, which only matters if
+// the epoch reveals a restart
+static void
+respond_with_epoch(pcp_handle_t handle, pcp_time_ms_t now, pcp_time_s_t epoch) {
+  deliver(now, epoch, mapping_of(handle), SUCCESS, 3600, nullptr);
+}
+
 // the server's answer to `handle`'s request, with an epoch time that stays
 // consistent with `now`
 static void respond(pcp_handle_t handle,
@@ -249,7 +270,7 @@ static void assert_idle(pcp_time_ms_t now) {
 
 static void test_session_server_reset_requests_again() {
   begin(100);
-  map();
+  auto const handle = map();
 
   // first send at 0, then backing off: next retransmissions at 3s and 9s
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
@@ -257,13 +278,13 @@ static void test_session_server_reset_requests_again() {
   TEST_ASSERT_EQUAL_UINT64(9000, deadline);
 
   // consistent epochs leave the schedule alone
-  receive_response(4000, 1000);
-  receive_response(5000, 1001);
+  learn_epoch(4000, 1000);
+  learn_epoch(5000, 1001);
   TEST_ASSERT_EQUAL_size_t(0, send_due(5000));
   TEST_ASSERT_EQUAL_UINT64(9000, deadline);
 
   // the server restarted: request again right away, backoff starting over
-  receive_response(6000, 3);
+  respond_with_epoch(handle, 6000, 3);
   TEST_ASSERT_EQUAL_size_t(1, send_due(6000));
   TEST_ASSERT_EQUAL_UINT64(9000, deadline);
   TEST_ASSERT_EQUAL_size_t(1, send_due(9000));
@@ -565,8 +586,8 @@ static void test_session_server_reset_unmaps_active_mapping() {
   auto const handle = map();
   establish(handle, 0);
 
-  receive_response(1000, 1000);
-  receive_response(2000, 3);
+  learn_epoch(1000, 1000);
+  respond_with_epoch(handle, 2000, 3);
 
   // first the application learns the address is gone, then it's requested again
   auto event = next_event(2000);
@@ -587,10 +608,10 @@ static void test_session_server_reset_unmaps_once() {
   establish(handle, 0);
 
   // two resets before the application polls still mean one lost address
-  receive_response(1000, 1000);
-  receive_response(2000, 3);
-  receive_response(3000, 1000);
-  receive_response(4000, 3);
+  learn_epoch(1000, 1000);
+  respond_with_epoch(handle, 2000, 3);
+  respond_with_epoch(handle, 3000, 1000);
+  respond_with_epoch(handle, 4000, 3);
 
   TEST_ASSERT_EQUAL(PCP_EVENT_UNMAPPED, next_event(4000).type);
   TEST_ASSERT_EQUAL_size_t(1, send_due(4000));
@@ -599,11 +620,11 @@ static void test_session_server_reset_unmaps_once() {
 
 static void test_session_server_reset_pending_mapping_not_unmapped() {
   begin(100);
-  map();
+  auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
-  receive_response(1000, 1000);
-  receive_response(2000, 3);
+  learn_epoch(1000, 1000);
+  respond_with_epoch(handle, 2000, 3);
 
   // it never had an address, so it's just requested again
   TEST_ASSERT_EQUAL_size_t(1, send_due(2000));
@@ -617,7 +638,7 @@ static void test_session_server_reset_before_mapped_event() {
 
   // granted, but the server restarts before the application polls
   respond(handle, 500, SUCCESS, 3600);
-  receive_response(1000, 3);
+  respond_with_epoch(handle, 1000, 3);
 
   // the application never saw the address, so neither MAPPED nor UNMAPPED
   TEST_ASSERT_EQUAL_size_t(1, send_due(1000));
@@ -631,8 +652,8 @@ static void test_session_server_reset_recovered_before_poll() {
 
   // the server restarts and grants the same address again before the
   // application polls, so as far as it's concerned nothing changed
-  receive_response(1000, 1001);
-  receive_response(2000, 3);
+  learn_epoch(1000, 1001);
+  respond_with_epoch(handle, 2000, 3);
   deliver(3000, 4, mapping_of(handle), SUCCESS, 3600, nullptr);
 
   TEST_ASSERT_EQUAL_size_t(0, send_due(3000));
@@ -645,8 +666,8 @@ static void test_session_server_reset_new_address_before_poll() {
   auto const handle = map();
   establish(handle, 0);
 
-  receive_response(1000, 1001);
-  receive_response(2000, 3);
+  learn_epoch(1000, 1001);
+  respond_with_epoch(handle, 2000, 3);
   granted.port = 40000;
   deliver(3000, 4, mapping_of(handle), SUCCESS, 3600, nullptr);
 
@@ -662,7 +683,7 @@ static void test_session_response_revealing_reset_not_applied() {
   begin(100);
   auto const handle = map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
-  receive_response(500, 1000);
+  learn_epoch(500, 1000);
 
   // matches the request, but its epoch says the server lost its state, so it
   // might as well be stale
@@ -671,12 +692,22 @@ static void test_session_response_revealing_reset_not_applied() {
   end();
 }
 
-// an unsolicited ANNOUNCE from the server
-static void
-announce(pcp_time_ms_t now, pcp_time_s_t epoch, pcp_result_t result) {
-  uint8_t data[24] = {0x02, 0x80, 0x00, result};
-  write_uint32(data + 8, epoch);
-  pcp_session_on_datagram(session, now, sizeof(data), data);
+static void test_session_unmatched_response_ignored() {
+  begin(100);
+  auto const handle = map();
+  establish(handle, 0);
+
+  // answers none of our requests, like a forged one, so whatever its epoch says
+  // isn't news about the server
+  receive_response(1000, 3);
+  TEST_ASSERT_EQUAL_size_t(0, send_due(1000));
+  TEST_ASSERT_EQUAL_UINT64(first_renewal, deadline);
+
+  // nor is it what the next real response is compared with
+  respond(handle, 2000, SUCCESS, 3600);
+  TEST_ASSERT_EQUAL_size_t(0, send_due(2000));
+  TEST_ASSERT_EQUAL_UINT64(2000 + first_renewal, deadline);
+  end();
 }
 
 // with the fake RNG at this value, requests wait 2.5s after an ANNOUNCE
@@ -720,7 +751,7 @@ static void test_session_announce_reset_delays_pending_mapping() {
   begin(100);
   map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
-  receive_response(500, 1000);
+  learn_epoch(500, 1000);
 
   rng_value = announce_delay_half;
   announce(1000, 3, SUCCESS);
@@ -886,7 +917,7 @@ static void test_session_release_ends_on_server_reset() {
   TEST_ASSERT_EQUAL_size_t(1, send_due(1000));
 
   // the server forgot the mapping by itself
-  receive_response(2000, 3);
+  respond_with_epoch(handle, 2000, 3);
   assert_idle(2000);
   end();
 }
@@ -969,7 +1000,7 @@ static void test_session_ignores_malformed_datagrams() {
   map();
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
-  receive_response(1000, 1000);
+  learn_epoch(1000, 1000);
   uint8_t garbage[60] = {0x02, 0x01}; // a request, not a response
   pcp_session_on_datagram(session, 2000, sizeof(garbage), garbage);
   TEST_ASSERT_EQUAL_size_t(0, send_due(2000));
@@ -1113,6 +1144,7 @@ void session_tests() {
   RUN_TEST(test_session_server_reset_recovered_before_poll);
   RUN_TEST(test_session_server_reset_new_address_before_poll);
   RUN_TEST(test_session_response_revealing_reset_not_applied);
+  RUN_TEST(test_session_unmatched_response_ignored);
   RUN_TEST(test_session_announce_consistent_epoch_ignored);
   RUN_TEST(test_session_announce_reset_unmaps_then_waits);
   RUN_TEST(test_session_announce_reset_delays_pending_mapping);

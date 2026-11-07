@@ -138,6 +138,18 @@ static bool pcp_mapping_matches(pcp_mapping_t const *mapping,
   unreachable();
 }
 
+bool pcp_mapping_awaits(pcp_mapping_t const *mapping,
+                        pcp_response_t const *response) {
+  assert(mapping);
+  assert(response);
+
+  // only PENDING, ACTIVE, or RELEASING are waiting for responses
+  if (mapping->state.type == FAILED || mapping->state.type == RELEASED) {
+    return false;
+  }
+  return pcp_mapping_matches(mapping, response);
+}
+
 // copy an address between the request and response, which store it the same
 // way
 static socket_address_t pcp_mapping_copy_address(uint16_t *port,
@@ -233,12 +245,7 @@ void pcp_mapping_on_response(pcp_mapping_t *mapping,
   assert(response->opcode == PCP_OPCODE_MAP ||
          response->opcode == PCP_OPCODE_PEER);
 
-  // only PENDING, ACTIVE, or RELEASING are waiting for responses
-  if (mapping->state.type == FAILED || mapping->state.type == RELEASED) {
-    return;
-  }
-
-  if (!pcp_mapping_matches(mapping, response)) {
+  if (!pcp_mapping_awaits(mapping, response)) {
     return;
   }
 

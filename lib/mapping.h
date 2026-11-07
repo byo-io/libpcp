@@ -73,6 +73,12 @@ void pcp_mapping_init(pcp_mapping_t *mapping,
                       pcp_option_t const options[count]);
 
 /**
+ * @brief Whether `response` answers a request `mapping` is still waiting on
+ */
+bool pcp_mapping_awaits(pcp_mapping_t const *mapping,
+                        pcp_response_t const *response);
+
+/**
  * @brief Handle a server response. Responses for other mappings are ignored.
  */
 void pcp_mapping_on_response(pcp_mapping_t *mapping,
