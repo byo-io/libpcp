@@ -25,9 +25,6 @@ typedef struct sim_config {
   uint64_t seed;
 } sim_config_t;
 
-/**
- * @brief Start a world
- */
 void sim_start(sim_config_t config);
 
 /**
@@ -40,9 +37,6 @@ void sim_end();
  */
 void sim_teardown();
 
-/**
- * @brief Let `duration` of virtual time pass
- */
 void sim_run_for(sim_duration_ms_t duration);
 
 /**
@@ -51,19 +45,10 @@ void sim_run_for(sim_duration_ms_t duration);
 pcp_handle_t
 sim_map(pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port);
 
-/**
- * @brief Release a mapping like the application would
- */
 void sim_release(pcp_handle_t handle);
 
-/**
- * @returns The address the application was told about for `handle`
- */
 socket_address_t sim_external(pcp_handle_t handle);
 
-/**
- * @returns What the server has done so far
- */
 sim_server_stats_t sim_stats();
 
 /**
@@ -72,9 +57,6 @@ sim_server_stats_t sim_stats();
  */
 void sim_assert_mapped(pcp_handle_t handle);
 
-/**
- * @brief Check the server has no lease left for what `handle` asked for
- */
 void sim_assert_no_lease(pcp_handle_t handle);
 
 /**

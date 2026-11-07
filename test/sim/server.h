@@ -55,9 +55,6 @@ typedef struct sim_server_reply {
   uint8_t data[SIM_SERVER_RESPONSE_SIZE];
 } sim_server_reply_t;
 
-/**
- * @brief Handle a datagram from the client at `source`
- */
 sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
                                           pcp_time_ms_t now,
                                           ip_address_t source,

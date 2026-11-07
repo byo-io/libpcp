@@ -30,17 +30,11 @@ typedef struct sim_observer {
 
 void sim_observer_start(sim_observer_t *observer);
 
-/**
- * @brief The application requested a mapping and got `handle` for it
- */
 void sim_observer_on_request(sim_observer_t *observer,
                              pcp_handle_t handle,
                              pcp_protocol_t protocol,
                              port_t port);
 
-/**
- * @brief The application released `handle`
- */
 void sim_observer_on_release(sim_observer_t *observer, pcp_handle_t handle);
 
 /**

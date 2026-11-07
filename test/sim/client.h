@@ -21,9 +21,6 @@ typedef struct sim_client {
   uint8_t send_buffer[PCP_PACKET_MAX_SIZE];
 } sim_client_t;
 
-/**
- * @returns Whether the session could be created, for pcp_session_end to end
- */
 bool sim_client_start(sim_client_t *client,
                       ip_address_t local,
                       pcp_rng_t rng,
