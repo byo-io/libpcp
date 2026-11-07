@@ -71,13 +71,6 @@ void sim_start(sim_t *sim);
 
 void sim_run_for(sim_t *sim, sim_duration_ms_t duration);
 
-pcp_handle_t sim_map(sim_t *sim,
-                     pcp_time_s_t lifetime,
-                     pcp_protocol_t protocol,
-                     port_t port);
-
-void sim_release(sim_t *sim, pcp_handle_t handle);
-
 socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle);
 
 sim_server_stats_t sim_stats(sim_t const *sim);
