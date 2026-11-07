@@ -16,7 +16,7 @@ typedef struct sim_io {
   void (*on_requested)(void *ctx,
                        pcp_handle_or_error_t result,
                        pcp_protocol_t protocol,
-                       port_t port);
+                       pcp_port_t port);
   /// The application released `handle`
   void (*on_released)(void *ctx, pcp_handle_t handle);
   void *ctx;
@@ -29,7 +29,7 @@ typedef struct sim_client {
 } sim_client_t;
 
 bool sim_client_start(sim_client_t *client,
-                      ip_address_t local,
+                      pcp_ip_address_t local,
                       pcp_rng_t rng,
                       sim_io_t io);
 
@@ -41,8 +41,8 @@ bool sim_client_start(sim_client_t *client,
 pcp_handle_or_error_t sim_client_map(sim_client_t *client,
                                      pcp_time_s_t lifetime,
                                      pcp_protocol_t protocol,
-                                     port_t port,
-                                     socket_address_t external);
+                                     pcp_port_t port,
+                                     pcp_socket_address_t external);
 
 void sim_client_release(sim_client_t *client, pcp_handle_t handle);
 

@@ -9,7 +9,7 @@
 static constexpr uint8_t VERSION = 2;
 static constexpr uint32_t ERROR_LIFETIME = 30;
 // the dynamic range (RFC 6335 section 6), which external ports come from
-static constexpr port_t FIRST_DYNAMIC_PORT = 49152;
+static constexpr pcp_port_t FIRST_DYNAMIC_PORT = 49152;
 static constexpr uint32_t DYNAMIC_PORTS = 16384;
 
 static_assert(SIM_SERVER_RESPONSE_SIZE ==
@@ -17,7 +17,7 @@ static_assert(SIM_SERVER_RESPONSE_SIZE ==
 
 // what a generated decoder can't know is wrong, it already checks the rest of
 // the format
-static void check_request(ip_address_t const *source,
+static void check_request(pcp_ip_address_t const *source,
                           struct pcp_request const *request) {
   TEST_ASSERT_EQUAL_MESSAGE(PCP_OPCODE_MAP, request->opcode,
                             "only MAP is simulated");
@@ -40,7 +40,7 @@ static void expire_leases(sim_server_t *server, pcp_time_ms_t now) {
 }
 
 static sim_lease_t *
-find_lease(sim_server_t *server, uint8_t protocol, port_t internal_port) {
+find_lease(sim_server_t *server, uint8_t protocol, pcp_port_t internal_port) {
   for (size_t i = 0; i < SIM_SERVER_MAX_LEASES; ++i) {
     auto const lease = &server->leases[i];
     if (lease->used && lease->protocol == protocol &&
@@ -51,7 +51,7 @@ find_lease(sim_server_t *server, uint8_t protocol, port_t internal_port) {
   return nullptr;
 }
 
-static bool port_is_free(sim_server_t const *server, port_t port) {
+static bool port_is_free(sim_server_t const *server, pcp_port_t port) {
   if (port == 0) {
     return false;
   }
@@ -67,14 +67,14 @@ static bool port_is_free(sim_server_t const *server, port_t port) {
 
 // takes the suggested port if it can and a random one otherwise, the suggested
 // address never matters since the server only has the one
-static port_t allocate_port(sim_server_t *server, port_t suggested) {
+static pcp_port_t allocate_port(sim_server_t *server, pcp_port_t suggested) {
   if (port_is_free(server, suggested)) {
     return suggested;
   }
 
   while (true) {
-    auto const port =
-        (port_t)(FIRST_DYNAMIC_PORT + sim_random(&server->rng) % DYNAMIC_PORTS);
+    auto const port = (pcp_port_t)(FIRST_DYNAMIC_PORT +
+                                   sim_random(&server->rng) % DYNAMIC_PORTS);
     if (port_is_free(server, port)) {
       return port;
     }
@@ -108,7 +108,7 @@ static sim_lease_t *create_lease(sim_server_t *server,
 }
 
 static void set_external(struct pcp_map_response *body,
-                         socket_address_t const *external) {
+                         pcp_socket_address_t const *external) {
   body->external_port = external->port;
   memcpy(body->external_ip, external->ip.addr, sizeof(body->external_ip));
 }
@@ -199,13 +199,13 @@ static size_t write_response(pcp_result_t result,
 sim_server_decision_t sim_server_always(void *ctx,
                                         pcp_time_s_t /*lifetime*/,
                                         pcp_protocol_t /*protocol*/,
-                                        port_t /*internal_port*/) {
+                                        pcp_port_t /*internal_port*/) {
   sim_server_decision_t const *decision = ctx;
   return *decision;
 }
 
 void sim_server_start(sim_server_t *server,
-                      ip_address_t external_ip,
+                      pcp_ip_address_t external_ip,
                       pcp_time_ms_t now) {
   memset(server->leases, 0, sizeof(server->leases));
   server->external_ip = external_ip;
@@ -232,7 +232,7 @@ size_t sim_server_announce(sim_server_t const *server,
 size_t sim_server_forge_response(sim_server_t const *server,
                                  pcp_time_ms_t now,
                                  pcp_protocol_t protocol,
-                                 port_t internal_port,
+                                 pcp_port_t internal_port,
                                  uint8_t data[SIM_SERVER_RESPONSE_SIZE]) {
   struct pcp_map_response body = {
       .lifetime = 3600,
@@ -248,7 +248,7 @@ size_t sim_server_forge_response(sim_server_t const *server,
 
 sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
                                           pcp_time_ms_t now,
-                                          ip_address_t source,
+                                          pcp_ip_address_t source,
                                           size_t size,
                                           uint8_t const data[size]) {
   struct pcp_request request;
@@ -304,7 +304,7 @@ sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
 sim_lease_t const *sim_server_find_lease(sim_server_t *server,
                                          pcp_time_ms_t now,
                                          pcp_protocol_t protocol,
-                                         port_t internal_port) {
+                                         pcp_port_t internal_port) {
   expire_leases(server, now);
   return find_lease(server, protocol, internal_port);
 }

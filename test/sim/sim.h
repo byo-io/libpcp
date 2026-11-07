@@ -39,7 +39,7 @@ typedef struct sim_trace_entry {
   char const *what;
   uint64_t value;
   bool has_address;
-  socket_address_t address;
+  pcp_socket_address_t address;
 } sim_trace_entry_t;
 
 typedef struct sim {
@@ -49,7 +49,7 @@ typedef struct sim {
   uint64_t rng_state;
   pcp_time_ms_t started;
   pcp_time_ms_t now;
-  ip_address_t local;
+  pcp_ip_address_t local;
 
   sim_client_t client;
   sim_observer_t observer;
@@ -101,7 +101,7 @@ void sim_inject(sim_t *sim, size_t size, uint8_t const data[size]);
  */
 void sim_inject_forged_response(sim_t *sim, pcp_handle_t handle);
 
-socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle);
+pcp_socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle);
 
 sim_server_stats_t sim_stats(sim_t const *sim);
 

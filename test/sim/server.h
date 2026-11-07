@@ -45,7 +45,7 @@ typedef struct sim_server_behavior {
   sim_server_decision_t (*on_request)(void *ctx,
                                       pcp_time_s_t lifetime,
                                       pcp_protocol_t protocol,
-                                      port_t internal_port);
+                                      pcp_port_t internal_port);
   void *ctx;
 } sim_server_behavior_t;
 
@@ -56,7 +56,7 @@ typedef struct sim_server_behavior {
 sim_server_decision_t sim_server_always(void *ctx,
                                         pcp_time_s_t lifetime,
                                         pcp_protocol_t protocol,
-                                        port_t internal_port);
+                                        pcp_port_t internal_port);
 
 /**
  * @brief A behavior deciding these sim_server_decision_t fields for every
@@ -90,8 +90,8 @@ typedef struct sim_lease {
   bool used;
   uint8_t nonce[12];
   pcp_protocol_t protocol;
-  port_t internal_port;
-  socket_address_t external;
+  pcp_port_t internal_port;
+  pcp_socket_address_t external;
   pcp_time_ms_t expires;
 } sim_lease_t;
 
@@ -107,7 +107,7 @@ typedef struct sim_server_stats {
 
 typedef struct sim_server {
   sim_server_behavior_t behavior;
-  ip_address_t external_ip;
+  pcp_ip_address_t external_ip;
   /// The state for sim_random, which picks the ports nobody suggested
   uint64_t rng;
   pcp_time_ms_t started;
@@ -123,7 +123,7 @@ typedef struct sim_server {
  * random sequence survive a reboot.
  */
 void sim_server_start(sim_server_t *server,
-                      ip_address_t external_ip,
+                      pcp_ip_address_t external_ip,
                       pcp_time_ms_t now);
 
 void sim_server_set_behavior(sim_server_t *server,
@@ -148,7 +148,7 @@ size_t sim_server_announce(sim_server_t const *server,
 size_t sim_server_forge_response(sim_server_t const *server,
                                  pcp_time_ms_t now,
                                  pcp_protocol_t protocol,
-                                 port_t internal_port,
+                                 pcp_port_t internal_port,
                                  uint8_t data[SIM_SERVER_RESPONSE_SIZE]);
 
 typedef struct sim_server_reply {
@@ -161,7 +161,7 @@ typedef struct sim_server_reply {
 
 sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
                                           pcp_time_ms_t now,
-                                          ip_address_t source,
+                                          pcp_ip_address_t source,
                                           size_t size,
                                           uint8_t const data[size]);
 
@@ -171,4 +171,4 @@ sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
 sim_lease_t const *sim_server_find_lease(sim_server_t *server,
                                          pcp_time_ms_t now,
                                          pcp_protocol_t protocol,
-                                         port_t internal_port);
+                                         pcp_port_t internal_port);

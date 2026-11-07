@@ -46,7 +46,7 @@
 static constexpr uint64_t SEEDS = 16;
 
 static constexpr pcp_time_s_t LIFETIME = 3600;
-static constexpr port_t PORT = 1234;
+static constexpr pcp_port_t PORT = 1234;
 
 // Renewing starts 1/2 into a lease (RFC 6887 section 11.2.1), so this is before
 // the first renewal is due
@@ -62,17 +62,19 @@ static constexpr sim_duration_ms_t LONGEST_RETRY = 20 * SIM_MINUTE;
   static void name() { sim_run_scenario(name##_scenario, SEEDS); }             \
   static void name##_scenario(sim_t *sim)
 
-static void assert_same_address(socket_address_t expected,
-                                socket_address_t actual) {
-  TEST_ASSERT_EQUAL_INT_MESSAGE(0, socket_address_cmp(&expected, &actual),
+static void assert_same_address(pcp_socket_address_t expected,
+                                pcp_socket_address_t actual) {
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, pcp_socket_address_cmp(&expected, &actual),
                                 "the external address changed");
 }
 
 // asks for a mapping like the application would, without a preference for the
 // external address. A request that fails has already failed the scenario.
-static pcp_handle_t
-map(sim_t *sim, pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port) {
-  socket_address_t const any = {.ip = ip_address_any_v4};
+static pcp_handle_t map(sim_t *sim,
+                        pcp_time_s_t lifetime,
+                        pcp_protocol_t protocol,
+                        pcp_port_t port) {
+  pcp_socket_address_t const any = {.ip = pcp_ip_address_any_v4};
   return sim_client_map(&sim->client, lifetime, protocol, port, any).value;
 }
 
@@ -302,8 +304,8 @@ SCENARIO(test_sim_restart_with_new_address) {
   // the old one can't be granted anymore, so the application hears the new one
   sim_assert_mapped(sim, handle);
   auto const new_external = sim_external(sim, handle);
-  TEST_ASSERT_NOT_EQUAL_INT(0,
-                            socket_address_cmp(&old_external, &new_external));
+  TEST_ASSERT_NOT_EQUAL_INT(
+      0, pcp_socket_address_cmp(&old_external, &new_external));
   SIM_ASSERT_EVENTS(sim, handle, PCP_EVENT_MAPPED, PCP_EVENT_UNMAPPED,
                     PCP_EVENT_MAPPED);
 }
@@ -416,7 +418,7 @@ SCENARIO(test_sim_permanent_error_on_renewal) {
 static sim_server_decision_t answer_like_natpmp(void * /*ctx*/,
                                                 pcp_time_s_t /*lifetime*/,
                                                 pcp_protocol_t /*protocol*/,
-                                                port_t /*internal_port*/) {
+                                                pcp_port_t /*internal_port*/) {
   return (sim_server_decision_t){
       .reply_size = 8,
       .reply = {0, 0, 0, PCP_RESULT_UNSUPP_VERSION},
@@ -596,7 +598,7 @@ SCENARIO(test_sim_many_mappings) {
   pcp_handle_t handles[count];
   for (size_t i = 0; i < count; ++i) {
     handles[i] = map(sim, (pcp_time_s_t)(600 * (i + 1)), PCP_PROTOCOL_UDP,
-                     (port_t)(1000 + i));
+                     (pcp_port_t)(1000 + i));
   }
 
   sim_run_for(sim, SIM_HOUR);
@@ -607,7 +609,7 @@ SCENARIO(test_sim_many_mappings) {
     auto const external = sim_external(sim, handles[i]);
     for (size_t j = 0; j < i; ++j) {
       auto const other = sim_external(sim, handles[j]);
-      TEST_ASSERT_NOT_EQUAL_INT(0, socket_address_cmp(&external, &other));
+      TEST_ASSERT_NOT_EQUAL_INT(0, pcp_socket_address_cmp(&external, &other));
     }
   }
 

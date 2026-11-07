@@ -34,7 +34,7 @@ void sim_observer_start(sim_observer_t *observer) {
 void sim_observer_on_request(sim_observer_t *observer,
                              pcp_handle_t handle,
                              pcp_protocol_t protocol,
-                             port_t port) {
+                             pcp_port_t port) {
   TEST_ASSERT_LESS_THAN_size_t_MESSAGE(SIM_OBSERVER_MAX_MAPPINGS,
                                        observer->mapping_count,
                                        "too many mappings to keep track of");
@@ -58,7 +58,8 @@ void sim_observer_on_event(sim_observer_t *observer, pcp_event_t const *event) {
         record_event(observer, event->mapped.handle, PCP_EVENT_MAPPED);
     if (mapping->state == SIM_OBSERVED_MAPPED) {
       TEST_ASSERT_NOT_EQUAL_MESSAGE(
-          0, socket_address_cmp(&mapping->external, &event->mapped.external),
+          0,
+          pcp_socket_address_cmp(&mapping->external, &event->mapped.external),
           "repeated MAPPED without a new address");
     }
     mapping->state = SIM_OBSERVED_MAPPED;

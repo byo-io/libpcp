@@ -10,14 +10,14 @@ static uint8_t const nonce[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
 // from client 192.168.1.100, for an hour
 static struct pcp_request from_client(struct pcp_request request) {
-  auto const client = ip_address_from_octets(192, 168, 1, 100);
+  auto const client = pcp_ip_address_from_octets(192, 168, 1, 100);
   memcpy(request.client_ip, client.addr, sizeof(request.client_ip));
   request.lifetime = 3600;
   return request;
 }
 
 // from internal port 12345
-static struct pcp_request map_request(socket_address_t external) {
+static struct pcp_request map_request(pcp_socket_address_t external) {
   auto result = from_client((struct pcp_request){
       .opcode = PCP_OPCODE_MAP,
       .body.map_body =
@@ -34,8 +34,8 @@ static struct pcp_request map_request(socket_address_t external) {
 }
 
 // from internal port 12345
-static struct pcp_request peer_request(socket_address_t external,
-                                       socket_address_t peer) {
+static struct pcp_request peer_request(pcp_socket_address_t external,
+                                       pcp_socket_address_t peer) {
   auto result = from_client((struct pcp_request){
       .opcode = PCP_OPCODE_PEER,
       .body.peer_body =
@@ -74,8 +74,8 @@ static size_t write_request(struct pcp_request const *request,
 }
 
 static void test_wire_map_request() {
-  auto const request = map_request((socket_address_t){
-      .ip = ip_address_from_octets(203, 0, 113, 7),
+  auto const request = map_request((pcp_socket_address_t){
+      .ip = pcp_ip_address_from_octets(203, 0, 113, 7),
       .port = 54321,
   });
 
@@ -107,8 +107,8 @@ static void test_wire_map_request() {
 }
 
 static void test_wire_map_request_without_suggestion() {
-  auto const request =
-      map_request((socket_address_t){.ip = ip_address_any_v4, .port = 0});
+  auto const request = map_request(
+      (pcp_socket_address_t){.ip = pcp_ip_address_any_v4, .port = 0});
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
   TEST_ASSERT_EQUAL_size_t(60, write_request(&request, buffer));
@@ -122,10 +122,11 @@ static void test_wire_map_request_without_suggestion() {
 
 static void test_wire_peer_request() {
   auto const request = peer_request(
-      (socket_address_t){.ip = ip_address_from_octets(203, 0, 113, 7),
-                         .port = 54321},
-      (socket_address_t){.ip = ip_address_from_string("2001:db8::1").value,
-                         .port = 443});
+      (pcp_socket_address_t){.ip = pcp_ip_address_from_octets(203, 0, 113, 7),
+                             .port = 54321},
+      (pcp_socket_address_t){
+          .ip = pcp_ip_address_from_string("2001:db8::1").value,
+          .port = 443});
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
   auto const size = write_request(&request, buffer);
@@ -192,8 +193,8 @@ static uint8_t const filter_bytes[] = {
 // clang-format on
 
 static void test_wire_third_party_option() {
-  auto const request =
-      map_request((socket_address_t){.ip = ip_address_any_v4, .port = 0});
+  auto const request = map_request(
+      (pcp_socket_address_t){.ip = pcp_ip_address_any_v4, .port = 0});
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
   TEST_ASSERT_EQUAL_size_t(
@@ -207,8 +208,8 @@ static void test_wire_third_party_option() {
 }
 
 static void test_wire_options_in_given_order() {
-  auto const request =
-      map_request((socket_address_t){.ip = ip_address_any_v4, .port = 0});
+  auto const request = map_request(
+      (pcp_socket_address_t){.ip = pcp_ip_address_any_v4, .port = 0});
   pcp_option_t const options[] = {filter, third_party, filter};
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
@@ -223,8 +224,8 @@ static void test_wire_options_in_given_order() {
 }
 
 static void test_wire_delete_request_without_filters() {
-  auto request =
-      map_request((socket_address_t){.ip = ip_address_any_v6, .port = 0});
+  auto request = map_request(
+      (pcp_socket_address_t){.ip = pcp_ip_address_any_v6, .port = 0});
   request.lifetime = 0;
   pcp_option_t const options[] = {filter, third_party};
 
@@ -238,9 +239,9 @@ static void test_wire_delete_request_without_filters() {
 
 static void test_wire_peer_request_with_options() {
   auto const request = peer_request(
-      (socket_address_t){.ip = ip_address_any_v4, .port = 0},
-      (socket_address_t){.ip = ip_address_from_octets(198, 51, 100, 1),
-                         .port = 443});
+      (pcp_socket_address_t){.ip = pcp_ip_address_any_v4, .port = 0},
+      (pcp_socket_address_t){.ip = pcp_ip_address_from_octets(198, 51, 100, 1),
+                             .port = 443});
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
   TEST_ASSERT_EQUAL_size_t(
@@ -295,7 +296,7 @@ static void test_wire_read_map_response() {
   TEST_ASSERT_EQUAL(PCP_PROTOCOL_UDP, map->protocol);
   TEST_ASSERT_EQUAL_UINT16(12345, map->internal_port);
 
-  auto const external = ip_address_from_octets(203, 0, 113, 7);
+  auto const external = pcp_ip_address_from_octets(203, 0, 113, 7);
   TEST_ASSERT_EQUAL_UINT8_ARRAY(external.addr, map->external_ip, 16);
   TEST_ASSERT_EQUAL_UINT16(54321, map->external_port);
 
@@ -311,7 +312,7 @@ static void test_wire_read_peer_response() {
   data[60] = 0x01;
   data[61] = 0xBB;
   // remote peer IP address: 2001:db8::1
-  auto const peer = ip_address_from_string("2001:db8::1").value;
+  auto const peer = pcp_ip_address_from_string("2001:db8::1").value;
   memcpy(data + 64, peer.addr, sizeof(peer.addr));
 
   auto const read = read_response(sizeof(data), data);
