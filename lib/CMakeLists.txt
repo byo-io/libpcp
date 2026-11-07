@@ -67,4 +67,39 @@ target_sources(pcp
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp/pcp_gen.h
         ${CMAKE_CURRENT_SOURCE_DIR}/pcp/wire.h)
 
-target_link_libraries(pcp PRIVATE pcp_warnings)
+# Only while building, so the installed library doesn't need the warnings
+# target
+target_link_libraries(pcp PRIVATE $<BUILD_INTERFACE:pcp_warnings>)
+
+# A shared library's soname only changes with the major version
+set_target_properties(pcp PROPERTIES
+  VERSION ${PROJECT_VERSION}
+  SOVERSION ${PROJECT_VERSION_MAJOR})
+
+# Installs the library and its headers, and a package so other projects can
+# find_package(pcp) and link to pcp::pcp
+if(PCP_INSTALL)
+  include(GNUInstallDirs)
+  include(CMakePackageConfigHelpers)
+
+  set(PCP_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/pcp)
+
+  install(TARGETS pcp
+    EXPORT pcpTargets
+    FILE_SET HEADERS)
+  install(EXPORT pcpTargets
+    NAMESPACE pcp::
+    DESTINATION ${PCP_CMAKE_DIR})
+
+  configure_package_config_file(
+    ${PROJECT_SOURCE_DIR}/cmake/pcpConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/pcpConfig.cmake
+    INSTALL_DESTINATION ${PCP_CMAKE_DIR})
+  write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/pcpConfigVersion.cmake
+    COMPATIBILITY SameMajorVersion)
+  install(FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/pcpConfig.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/pcpConfigVersion.cmake
+    DESTINATION ${PCP_CMAKE_DIR})
+endif()
