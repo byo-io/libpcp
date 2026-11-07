@@ -53,8 +53,13 @@ int main(int argc, char *argv[]) {
 
   pcp_session_t *session = pcp_session_begin(config);
 
+  // any external port, in the client's own family
+  socket_address_t const external = {
+      .ip =
+          ip_address_is_ipv4(&local.ip) ? ip_address_any_v4 : ip_address_any_v6,
+  };
   auto const handle =
-      pcp_session_map_request(session, 1024, UDP, 12345, 0, nullptr);
+      pcp_session_map_request(session, 1024, UDP, 12345, external, 0, nullptr);
   if (!handle.has_value) {
     fprintf(stderr, "pcp_session_map_request: %s\n", strerror(handle.error));
     return EXIT_FAILURE;

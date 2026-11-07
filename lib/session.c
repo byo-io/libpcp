@@ -101,16 +101,6 @@ void pcp_session_end(pcp_session_t *session) {
   FREE(session->config.allocator, session);
 }
 
-// Suggest "any" address, but in the client's own family since the server picks
-// one from the suggested family
-static socket_address_t pcp_session_any_external(ip_address_t const *internal) {
-  return (socket_address_t){
-      .ip =
-          ip_address_is_ipv4(internal) ? ip_address_any_v4 : ip_address_any_v6,
-      .port = 0,
-  };
-}
-
 static pcp_handle_or_error_t pcp_session_error(errno_t error) {
   return (pcp_handle_or_error_t){
       .has_value = false,
@@ -178,6 +168,7 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
                                               pcp_time_s_t lifetime,
                                               pcp_protocol_t protocol,
                                               port_t port,
+                                              socket_address_t external,
                                               size_t count,
                                               pcp_option_t const options[]) {
   assert(session);
@@ -188,8 +179,7 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
   auto const body = &request.body.map_body;
   body->protocol = protocol;
   body->internal_port = port;
-  pcp_session_set_address(&body->external_port, body->external_ip,
-                          pcp_session_any_external(&session->config.local));
+  pcp_session_set_address(&body->external_port, body->external_ip, external);
 
   if (!pcp_session_nonce(session, sizeof(body->nonce), body->nonce)) {
     return pcp_session_error(ENOTRECOVERABLE);
@@ -202,6 +192,7 @@ pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
                                                pcp_time_s_t lifetime,
                                                pcp_protocol_t protocol,
                                                port_t port,
+                                               socket_address_t external,
                                                socket_address_t peer,
                                                size_t count,
                                                pcp_option_t const options[]) {
@@ -213,8 +204,7 @@ pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
   auto const body = &request.body.peer_body;
   body->protocol = protocol;
   body->internal_port = port;
-  pcp_session_set_address(&body->external_port, body->external_ip,
-                          pcp_session_any_external(&session->config.local));
+  pcp_session_set_address(&body->external_port, body->external_ip, external);
   pcp_session_set_address(&body->peer_port, body->peer_ip, peer);
 
   if (!pcp_session_nonce(session, sizeof(body->nonce), body->nonce)) {

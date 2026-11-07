@@ -68,11 +68,12 @@ static void assert_same_address(socket_address_t expected,
                                 "the external address changed");
 }
 
-// asks for a mapping like the application would, a request that fails has
-// already failed the scenario
+// asks for a mapping like the application would, without a preference for the
+// external address. A request that fails has already failed the scenario.
 static pcp_handle_t
 map(sim_t *sim, pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port) {
-  return sim_client_map(&sim->client, lifetime, protocol, port).value;
+  socket_address_t const any = {.ip = ip_address_any_v4};
+  return sim_client_map(&sim->client, lifetime, protocol, port, any).value;
 }
 
 // a mapping the server has granted, with some time left until its renewal

@@ -122,11 +122,15 @@ typedef struct pcp_handle_or_error {
  * @param[in] lifetime The requested lifetime of the mapping (not 0)
  * @param[in] protocol The protocol the mapping should affect (ALL, UDP, or TCP)
  * @param[in] port     The internal port for this mapping
+ * @param[in] external The external address to ask for, which the server may
+ *                     not grant. Port 0 means any port, and ip_address_any_v4
+ *                     or ip_address_any_v6 any address in that family. A zeroed
+ *                     address asks for IPv6.
  * @param[in] count    The number of options that should be included
  * @param[in] options  The option values to attach
  *
  * The request is due immediately, so the application should poll the session
- * afterwards, see pcp_session_poll.
+ * afterwards, see pcp_session_poll. Renewals ask for whatever was granted.
  *
  * @returns The handle, or an error (EMSGSIZE if the options don't fit in a
  *          packet)
@@ -135,6 +139,7 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
                                               pcp_time_s_t lifetime,
                                               pcp_protocol_t protocol,
                                               port_t port,
+                                              socket_address_t external,
                                               size_t count,
                                               pcp_option_t const options[]);
 
@@ -145,12 +150,14 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
  * @param[in] lifetime The requested lifetime of the mapping (not 0)
  * @param[in] protocol The protocol the mapping should affect (ALL, UDP, or TCP)
  * @param[in] port     The internal port for the mapping
+ * @param[in] external The external address to ask for, as in
+ *                     pcp_session_map_request
  * @param[in] peer     The peer address the server should use for the mapping
  * @param[in] count    The number of options that should be included
  * @param[in] options  The option values to attach
  *
  * The request is due immediately, so the application should poll the session
- * afterwards, see pcp_session_poll.
+ * afterwards, see pcp_session_poll. Renewals ask for whatever was granted.
  *
  * @returns The handle, or an error (EMSGSIZE if the options don't fit in a
  *          packet)
@@ -159,6 +166,7 @@ pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
                                                pcp_time_s_t lifetime,
                                                pcp_protocol_t protocol,
                                                port_t port,
+                                               socket_address_t external,
                                                socket_address_t peer,
                                                size_t count,
                                                pcp_option_t const options[]);

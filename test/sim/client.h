@@ -41,7 +41,8 @@ bool sim_client_start(sim_client_t *client,
 pcp_handle_or_error_t sim_client_map(sim_client_t *client,
                                      pcp_time_s_t lifetime,
                                      pcp_protocol_t protocol,
-                                     port_t port);
+                                     port_t port,
+                                     socket_address_t external);
 
 void sim_client_release(sim_client_t *client, pcp_handle_t handle);
 
