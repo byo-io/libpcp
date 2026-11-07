@@ -22,7 +22,7 @@ typedef struct size_or_error {
   bool has_value;
   union {
     size_t value;
-    errno_t error;
+    int error;
   };
 } size_or_error_t;
 
@@ -41,9 +41,10 @@ static volatile sig_atomic_t running = 1;
 
 static void on_signal(int /*signal*/) { running = 0; }
 
-static struct sockaddr_in6 to_sockaddr_in6(socket_address_t const *address) {
-  // ip_address_t stores IPv4 as v4-mapped, which is what a dual-stack socket
-  // wants
+static struct sockaddr_in6
+to_sockaddr_in6(pcp_socket_address_t const *address) {
+  // pcp_ip_address_t stores IPv4 as v4-mapped, which is what a dual-stack
+  // socket wants
   struct sockaddr_in6 result = {0};
   result.sin6_family = AF_INET6;
   result.sin6_port = htons(address->port);
@@ -53,7 +54,7 @@ static struct sockaddr_in6 to_sockaddr_in6(socket_address_t const *address) {
   return result;
 }
 
-socket_address_t transport_init(socket_address_t server) {
+pcp_socket_address_t transport_init(pcp_socket_address_t server) {
   client = socket(AF_INET6, SOCK_DGRAM, 0);
   if (-1 == client) {
     perror("socket");
@@ -94,7 +95,7 @@ socket_address_t transport_init(socket_address_t server) {
       getsockname(client, (struct sockaddr *)&addr, &size);
   assert(0 == result);
 
-  return socket_address_from_sockaddr_in6(&addr);
+  return pcp_socket_address_from_sockaddr_in6(&addr);
 }
 
 void transport_close() {
@@ -125,9 +126,9 @@ void transport_loop(pcp_session_t *session, bool until_idle) {
         break;
       }
       case PCP_EVENT_MAPPED: {
-        char external[SOCKET_ADDRESS_STRING_LENGTH];
-        socket_address_to_string(sizeof(external), external,
-                                 &event.mapped.external);
+        char external[PCP_SOCKET_ADDRESS_STRING_LENGTH];
+        pcp_socket_address_to_string(sizeof(external), external,
+                                     &event.mapped.external);
         printf("Mapping %" PRIu16 " is reachable at %s\n", event.mapped.handle,
                external);
         break;

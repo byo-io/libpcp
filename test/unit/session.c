@@ -11,16 +11,16 @@ static uint16_t rng_value;
 static uint8_t send_buffer[PCP_PACKET_MAX_SIZE];
 static pcp_session_t *session;
 
-static ip_address_t const external_ip = {
+static pcp_ip_address_t const external_ip = {
     .addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 203, 0, 113, 7}};
-static constexpr port_t external_port = 54321;
+static constexpr pcp_port_t external_port = 54321;
 
 // what the server grants in responses from deliver(), reset by begin_with()
-static socket_address_t granted;
+static pcp_socket_address_t granted;
 
-static pcp_session_t *begin_with(uint16_t value, ip_address_t local) {
+static pcp_session_t *begin_with(uint16_t value, pcp_ip_address_t local) {
   rng_value = value;
-  granted = (socket_address_t){.ip = external_ip, .port = external_port};
+  granted = (pcp_socket_address_t){.ip = external_ip, .port = external_port};
   session = pcp_session_begin((pcp_config_t){
       .local = local,
       .allocator = {0},
@@ -32,7 +32,7 @@ static pcp_session_t *begin_with(uint16_t value, ip_address_t local) {
 }
 
 static pcp_session_t *begin(uint16_t value) {
-  return begin_with(value, ip_address_loopback_v4);
+  return begin_with(value, pcp_ip_address_loopback_v4);
 }
 
 static void end() {
@@ -41,9 +41,9 @@ static void end() {
 }
 
 // no preference, for an IPv4 client
-static socket_address_t const any_external = {.ip = ip_address_any_v4};
+static pcp_socket_address_t const any_external = {.ip = pcp_ip_address_any_v4};
 
-static pcp_handle_t map_suggesting(socket_address_t external) {
+static pcp_handle_t map_suggesting(pcp_socket_address_t external) {
   auto const handle = pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP,
                                               1234, external, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);
@@ -187,7 +187,7 @@ static void deliver(pcp_time_ms_t now,
                     pcp_mapping_t const *mapping,
                     pcp_result_t result,
                     pcp_time_s_t lifetime,
-                    socket_address_t const *peer) {
+                    pcp_socket_address_t const *peer) {
   uint8_t data[80] = {0x02, 0x81, 0x00, result};
   size_t size = 60;
   write_uint32(data + 4, lifetime);
@@ -309,9 +309,9 @@ static void establish(pcp_handle_t handle, pcp_time_ms_t now) {
 
 // the suggested external address in the request the session last asked the
 // application to send
-static socket_address_t suggested() {
-  socket_address_t result = {
-      .port = (port_t)(send_buffer[42] << 8 | send_buffer[43]),
+static pcp_socket_address_t suggested() {
+  pcp_socket_address_t result = {
+      .port = (pcp_port_t)(send_buffer[42] << 8 | send_buffer[43]),
   };
   memcpy(result.ip.addr, send_buffer + 44, sizeof(result.ip.addr));
   return result;
@@ -377,8 +377,9 @@ static void test_session_renewal_changes_address() {
   establish(handle, 0);
   TEST_ASSERT_EQUAL_size_t(1, send_due(first_renewal));
 
-  granted = (socket_address_t){.ip = ip_address_from_octets(203, 0, 113, 8),
-                               .port = 40000};
+  granted =
+      (pcp_socket_address_t){.ip = pcp_ip_address_from_octets(203, 0, 113, 8),
+                             .port = 40000};
   respond(handle, 1801000, PCP_RESULT_SUCCESS, 3600);
 
   auto const event = next_event(1801000);
@@ -519,16 +520,16 @@ static void test_session_response_matches_its_mapping_only() {
 
 static void test_session_peer_response_must_match_remote_peer() {
   begin(100);
-  socket_address_t const remote = {.ip =
-                                       ip_address_from_octets(198, 51, 100, 1),
-                                   .port = 443};
+  pcp_socket_address_t const remote = {
+      .ip = pcp_ip_address_from_octets(198, 51, 100, 1),
+      .port = 443};
   auto const handle = pcp_session_peer_request(
       session, 3600, PCP_PROTOCOL_TCP, 1234, any_external, remote, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
   // same nonce, protocol and port, but a different remote peer
-  socket_address_t const other = {.ip = remote.ip, .port = 444};
+  pcp_socket_address_t const other = {.ip = remote.ip, .port = 444};
   deliver(500, 1000, mapping_of(handle.value), PCP_RESULT_SUCCESS, 3600,
           &other);
   TEST_ASSERT_EQUAL_size_t(0, send_due(500));
@@ -553,9 +554,9 @@ static void test_session_duplicate_response_ignored() {
 
 static void test_session_suggests_given_address() {
   begin(100);
-  socket_address_t const external = {.ip =
-                                         ip_address_from_octets(203, 0, 113, 9),
-                                     .port = 40000};
+  pcp_socket_address_t const external = {
+      .ip = pcp_ip_address_from_octets(203, 0, 113, 9),
+      .port = 40000};
   map_suggesting(external);
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
@@ -568,24 +569,25 @@ static void test_session_suggests_given_address() {
 static void test_session_suggests_given_family() {
   // e.g. an IPv6 client behind NAT64 that wants an IPv4 address, which only
   // the family of the suggestion can ask for
-  begin_with(100, ip_address_loopback_v6);
+  begin_with(100, pcp_ip_address_loopback_v6);
   map_suggesting(any_external);
   TEST_ASSERT_EQUAL_size_t(1, send_due(0));
 
   auto const suggestion = suggested();
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(ip_address_any_v4.addr, suggestion.ip.addr, 16);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(pcp_ip_address_any_v4.addr, suggestion.ip.addr,
+                                16);
   TEST_ASSERT_EQUAL_UINT16(0, suggestion.port);
   end();
 }
 
 static void test_session_peer_suggests_given_address() {
   begin(100);
-  socket_address_t const external = {.ip =
-                                         ip_address_from_octets(203, 0, 113, 9),
-                                     .port = 40000};
-  socket_address_t const remote = {.ip =
-                                       ip_address_from_octets(198, 51, 100, 1),
-                                   .port = 443};
+  pcp_socket_address_t const external = {
+      .ip = pcp_ip_address_from_octets(203, 0, 113, 9),
+      .port = 40000};
+  pcp_socket_address_t const remote = {
+      .ip = pcp_ip_address_from_octets(198, 51, 100, 1),
+      .port = 443};
   TEST_ASSERT_TRUE(pcp_session_peer_request(session, 3600, PCP_PROTOCOL_TCP,
                                             1234, external, remote, 0, nullptr)
                        .has_value);
@@ -602,8 +604,8 @@ static void test_session_suggests_granted_address_afterwards() {
   begin(100);
   // the server doesn't have to grant what was suggested
   auto const handle = map_suggesting(
-      (socket_address_t){.ip = ip_address_from_octets(203, 0, 113, 9),
-                         .port = 40000});
+      (pcp_socket_address_t){.ip = pcp_ip_address_from_octets(203, 0, 113, 9),
+                             .port = 40000});
   establish(handle, 0);
 
   // requested again once it lapsed, asking to keep the same address
@@ -905,9 +907,9 @@ static void test_session_release_drops_owed_event() {
 
 static void test_session_release_peer_not_deleted() {
   begin(100);
-  socket_address_t const remote = {.ip =
-                                       ip_address_from_octets(198, 51, 100, 1),
-                                   .port = 443};
+  pcp_socket_address_t const remote = {
+      .ip = pcp_ip_address_from_octets(198, 51, 100, 1),
+      .port = 443};
   auto const handle = pcp_session_peer_request(
       session, 3600, PCP_PROTOCOL_TCP, 1234, any_external, remote, 0, nullptr);
   TEST_ASSERT_TRUE(handle.has_value);

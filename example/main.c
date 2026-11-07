@@ -13,20 +13,20 @@
 
 static bool pcp_rng(void * /*ctx*/, size_t count, uint8_t bytes[count]);
 
-const char *address_to_string(socket_address_t const *addr) {
-  static char buffer[SOCKET_ADDRESS_STRING_LENGTH];
-  socket_address_to_string(sizeof(buffer), buffer, addr);
+const char *address_to_string(pcp_socket_address_t const *addr) {
+  static char buffer[PCP_SOCKET_ADDRESS_STRING_LENGTH];
+  pcp_socket_address_to_string(sizeof(buffer), buffer, addr);
   return buffer;
 }
 
 int main(int argc, char *argv[]) {
-  socket_address_t server = {
-      .ip = ip_address_loopback_v4,
+  pcp_socket_address_t server = {
+      .ip = pcp_ip_address_loopback_v4,
       .port = 5351,
   };
 
   if (argc > 1) {
-    auto const parsed_server = socket_address_from_string(argv[1]);
+    auto const parsed_server = pcp_socket_address_from_string(argv[1]);
     if (!parsed_server.has_value) {
       fprintf(stderr, "usage: %s <server-address>:<port>\n", argv[0]);
       fprintf(stderr, "e.g.   %s 192.168.1.1:5351\n", argv[0]);
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     server = parsed_server.value;
   }
 
-  socket_address_t const local = transport_init(server);
+  pcp_socket_address_t const local = transport_init(server);
   printf("Client on %s\n", address_to_string(&local));
 
   uint8_t buffer[PCP_PACKET_MAX_SIZE];
@@ -54,9 +54,9 @@ int main(int argc, char *argv[]) {
   pcp_session_t *session = pcp_session_begin(config);
 
   // any external port, in the client's own family
-  socket_address_t const external = {
-      .ip =
-          ip_address_is_ipv4(&local.ip) ? ip_address_any_v4 : ip_address_any_v6,
+  pcp_socket_address_t const external = {
+      .ip = pcp_ip_address_is_ipv4(&local.ip) ? pcp_ip_address_any_v4
+                                              : pcp_ip_address_any_v6,
   };
   auto const handle = pcp_session_map_request(session, 1024, PCP_PROTOCOL_UDP,
                                               12345, external, 0, nullptr);

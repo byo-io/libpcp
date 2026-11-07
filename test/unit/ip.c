@@ -10,7 +10,7 @@
 
 static void test_ip_address_from_in_addr() {
   struct in_addr addr = {.s_addr = htonl(INADDR_LOOPBACK)};
-  const auto result = ip_address_from_in_addr(&addr);
+  const auto result = pcp_ip_address_from_in_addr(&addr);
   TEST_ASSERT_EQUAL_UINT8((INADDR_LOOPBACK >> 24) & 0xFF, result.addr[12]);
   TEST_ASSERT_EQUAL_UINT8((INADDR_LOOPBACK >> 16) & 0xFF, result.addr[13]);
   TEST_ASSERT_EQUAL_UINT8((INADDR_LOOPBACK >> 8) & 0xFF, result.addr[14]);
@@ -19,7 +19,7 @@ static void test_ip_address_from_in_addr() {
 
 static void test_ip_address_from_in6_addr() {
   struct in6_addr addr = IN6ADDR_LOOPBACK_INIT;
-  const auto result = ip_address_from_in6_addr(&addr);
+  const auto result = pcp_ip_address_from_in6_addr(&addr);
   TEST_ASSERT_EQUAL_UINT8_ARRAY(addr.s6_addr, result.addr, 16);
 }
 
@@ -27,29 +27,29 @@ static void test_ip_address_ntop_ipv4() {
   struct in_addr loopback = {0};
   // not assert(), which Release builds compile out along with the call
   TEST_ASSERT_EQUAL_INT(1, inet_pton(AF_INET, "127.0.0.1", &loopback));
-  auto ip = ip_address_from_in_addr(&loopback);
+  auto ip = pcp_ip_address_from_in_addr(&loopback);
 
   char string[INET_ADDRSTRLEN + 1];
-  TEST_ASSERT_TRUE(ip_address_to_string(sizeof(string), string, &ip));
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string, &ip));
   TEST_ASSERT_EQUAL_STRING("127.0.0.1", string);
 
   struct in_addr any = {0};
-  ip = ip_address_from_in_addr(&any);
-  TEST_ASSERT_TRUE(ip_address_to_string(sizeof(string), string, &ip));
+  ip = pcp_ip_address_from_in_addr(&any);
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string, &ip));
   TEST_ASSERT_EQUAL_STRING("0.0.0.0", string);
 }
 
 static void test_ip_address_ntop_ipv6() {
   const struct in6_addr loopback = IN6ADDR_LOOPBACK_INIT;
-  auto ip = ip_address_from_in6_addr(&loopback);
+  auto ip = pcp_ip_address_from_in6_addr(&loopback);
 
   char string[INET6_ADDRSTRLEN + 1];
-  TEST_ASSERT_TRUE(ip_address_to_string(sizeof(string), string, &ip));
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string, &ip));
   TEST_ASSERT_EQUAL_STRING("::1", string);
 
   const struct in6_addr any = IN6ADDR_ANY_INIT;
-  ip = ip_address_from_in6_addr(&any);
-  TEST_ASSERT_TRUE(ip_address_to_string(sizeof(string), string, &ip));
+  ip = pcp_ip_address_from_in6_addr(&any);
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string, &ip));
   TEST_ASSERT_EQUAL_STRING("::", string);
 }
 
@@ -57,11 +57,11 @@ static void test_socket_address_ntop_ipv4() {
   const struct sockaddr_in address = {.sin_family = AF_INET,
                                       .sin_addr = htonl(INADDR_LOOPBACK),
                                       .sin_port = htons(12345)};
-  auto const socket = socket_address_from_sockaddr_in(&address);
+  auto const socket = pcp_socket_address_from_sockaddr_in(&address);
 
   char dst[128] = {0};
-  TEST_ASSERT_EQUAL_size_t(15,
-                           socket_address_to_string(sizeof(dst), dst, &socket));
+  TEST_ASSERT_EQUAL_size_t(
+      15, pcp_socket_address_to_string(sizeof(dst), dst, &socket));
   TEST_ASSERT_EQUAL_STRING("127.0.0.1:12345", dst);
 }
 
@@ -69,19 +69,19 @@ static void test_socket_address_ntop_ipv6() {
   const struct sockaddr_in6 address = {.sin6_family = AF_INET6,
                                        .sin6_addr = IN6ADDR_LOOPBACK_INIT,
                                        .sin6_port = htons(12345)};
-  auto const socket = socket_address_from_sockaddr_in6(&address);
+  auto const socket = pcp_socket_address_from_sockaddr_in6(&address);
 
   {
     char dst[128] = {0};
     TEST_ASSERT_EQUAL_size_t(
-        11, socket_address_to_string(sizeof(dst), dst, &socket));
+        11, pcp_socket_address_to_string(sizeof(dst), dst, &socket));
     TEST_ASSERT_EQUAL_STRING("[::1]:12345", dst);
   }
 
   {
     char dst[1] = {0};
     TEST_ASSERT_EQUAL_size_t(
-        0, socket_address_to_string(sizeof(dst), dst, &socket));
+        0, pcp_socket_address_to_string(sizeof(dst), dst, &socket));
     TEST_ASSERT_EQUAL_STRING("", dst);
   }
 }
@@ -93,50 +93,52 @@ static void test_ip_address_constants() {
   struct in6_addr const any_v6 = IN6ADDR_ANY_INIT;
   struct in6_addr const loopback_v6 = IN6ADDR_LOOPBACK_INIT;
 
-  auto expected = ip_address_from_in_addr(&any_v4);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, ip_address_any_v4.addr, 16);
-  expected = ip_address_from_in_addr(&loopback_v4);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, ip_address_loopback_v4.addr, 16);
-  expected = ip_address_from_in6_addr(&any_v6);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, ip_address_any_v6.addr, 16);
-  expected = ip_address_from_in6_addr(&loopback_v6);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, ip_address_loopback_v6.addr, 16);
+  auto expected = pcp_ip_address_from_in_addr(&any_v4);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, pcp_ip_address_any_v4.addr, 16);
+  expected = pcp_ip_address_from_in_addr(&loopback_v4);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, pcp_ip_address_loopback_v4.addr,
+                                16);
+  expected = pcp_ip_address_from_in6_addr(&any_v6);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, pcp_ip_address_any_v6.addr, 16);
+  expected = pcp_ip_address_from_in6_addr(&loopback_v6);
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(expected.addr, pcp_ip_address_loopback_v6.addr,
+                                16);
 
   char string[INET6_ADDRSTRLEN + 1];
-  TEST_ASSERT_TRUE(
-      ip_address_to_string(sizeof(string), string, &ip_address_loopback_v4));
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string,
+                                            &pcp_ip_address_loopback_v4));
   TEST_ASSERT_EQUAL_STRING("127.0.0.1", string);
-  TEST_ASSERT_TRUE(
-      ip_address_to_string(sizeof(string), string, &ip_address_loopback_v6));
+  TEST_ASSERT_TRUE(pcp_ip_address_to_string(sizeof(string), string,
+                                            &pcp_ip_address_loopback_v6));
   TEST_ASSERT_EQUAL_STRING("::1", string);
 }
 
 static void test_ip_network_from_address() {
   // the usual CIDR prefix, stored for the 128-bit address
-  auto network =
-      ip_network_from_address(ip_address_from_octets(203, 0, 113, 0), 24);
+  auto network = pcp_ip_network_from_address(
+      pcp_ip_address_from_octets(203, 0, 113, 0), 24);
   TEST_ASSERT_EQUAL_UINT8(120, network.prefix);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(ip_address_from_octets(203, 0, 113, 0).addr,
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(pcp_ip_address_from_octets(203, 0, 113, 0).addr,
                                 network.address.addr, 16);
 
-  auto const v6 = ip_address_from_string("2001:db8::").value;
-  network = ip_network_from_address(v6, 32);
+  auto const v6 = pcp_ip_address_from_string("2001:db8::").value;
+  network = pcp_ip_network_from_address(v6, 32);
   TEST_ASSERT_EQUAL_UINT8(32, network.prefix);
   TEST_ASSERT_EQUAL_UINT8_ARRAY(v6.addr, network.address.addr, 16);
 }
 
 static void test_socket_address_from_string() {
-  auto result = socket_address_from_string("192.168.1.1:5351");
+  auto result = pcp_socket_address_from_string("192.168.1.1:5351");
   TEST_ASSERT_TRUE(result.has_value);
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(ip_address_from_octets(192, 168, 1, 1).addr,
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(pcp_ip_address_from_octets(192, 168, 1, 1).addr,
                                 result.value.ip.addr, 16);
   TEST_ASSERT_EQUAL_UINT16(5351, result.value.port);
 
-  result = socket_address_from_string("[2001:db8::1]:65535");
+  result = pcp_socket_address_from_string("[2001:db8::1]:65535");
   TEST_ASSERT_TRUE(result.has_value);
   TEST_ASSERT_EQUAL_UINT8_ARRAY(
-      ip_address_from_string("2001:db8::1").value.addr, result.value.ip.addr,
-      16);
+      pcp_ip_address_from_string("2001:db8::1").value.addr,
+      result.value.ip.addr, 16);
   TEST_ASSERT_EQUAL_UINT16(65535, result.value.port);
 }
 
@@ -163,9 +165,9 @@ static void test_socket_address_from_string_rejects_malformed() {
 
   for (size_t i = 0; i < sizeof(malformed) / sizeof(malformed[0]); ++i) {
     TEST_ASSERT_FALSE_MESSAGE(
-        socket_address_from_string(malformed[i]).has_value, malformed[i]);
+        pcp_socket_address_from_string(malformed[i]).has_value, malformed[i]);
   }
-  TEST_ASSERT_FALSE(socket_address_from_string(nullptr).has_value);
+  TEST_ASSERT_FALSE(pcp_socket_address_from_string(nullptr).has_value);
 }
 
 void ip_tests() {

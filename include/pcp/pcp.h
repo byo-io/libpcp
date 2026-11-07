@@ -44,7 +44,7 @@ typedef struct pcp_buffer {
 } pcp_buffer_t;
 
 typedef struct pcp_config {
-  ip_address_t local;
+  pcp_ip_address_t local;
   pcp_allocator_t allocator;
   pcp_rng_t rng;
   /// Outgoing packets are written here (see PCP_EVENT_SEND). Needs at least
@@ -93,25 +93,25 @@ typedef struct pcp_option {
   } type;
   union {
     struct {
-      ip_address_t internal;
+      pcp_ip_address_t internal;
     } third_party;
     struct {
-      /// See ip_network_from_address
-      ip_network_t peers;
+      /// See pcp_ip_network_from_address
+      pcp_ip_network_t peers;
       /// 0 for any port
-      port_t port;
+      pcp_port_t port;
     } filter;
   };
 } pcp_option_t;
 
 typedef uint16_t pcp_handle_t;
-typedef int errno_t;
 
 typedef struct pcp_handle_or_error {
   bool has_value;
   union {
     pcp_handle_t value;
-    errno_t error;
+    /// An errno value, e.g. EMSGSIZE
+    int error;
   };
 } pcp_handle_or_error_t;
 
@@ -124,9 +124,9 @@ typedef struct pcp_handle_or_error {
  *                     (PCP_PROTOCOL_ALL, PCP_PROTOCOL_UDP, or PCP_PROTOCOL_TCP)
  * @param[in] port     The internal port for this mapping
  * @param[in] external The external address to ask for, which the server may
- *                     not grant. Port 0 means any port, and ip_address_any_v4
- *                     or ip_address_any_v6 any address in that family. A zeroed
- *                     address asks for IPv6.
+ *                     not grant. Port 0 means any port, and
+ * pcp_ip_address_any_v4 or pcp_ip_address_any_v6 any address in that family. A
+ * zeroed address asks for IPv6.
  * @param[in] count    The number of options that should be included
  * @param[in] options  The option values to attach
  *
@@ -139,8 +139,8 @@ typedef struct pcp_handle_or_error {
 pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
                                               pcp_time_s_t lifetime,
                                               pcp_protocol_t protocol,
-                                              port_t port,
-                                              socket_address_t external,
+                                              pcp_port_t port,
+                                              pcp_socket_address_t external,
                                               size_t count,
                                               pcp_option_t const options[]);
 
@@ -167,9 +167,9 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
 pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
                                                pcp_time_s_t lifetime,
                                                pcp_protocol_t protocol,
-                                               port_t port,
-                                               socket_address_t external,
-                                               socket_address_t peer,
+                                               pcp_port_t port,
+                                               pcp_socket_address_t external,
+                                               pcp_socket_address_t peer,
                                                size_t count,
                                                pcp_option_t const options[]);
 
@@ -238,7 +238,7 @@ typedef struct pcp_event {
     } send;
     struct {
       pcp_handle_t handle;
-      socket_address_t external;
+      pcp_socket_address_t external;
     } mapped;
     struct {
       pcp_handle_t handle;

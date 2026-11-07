@@ -21,7 +21,7 @@ static bool sim_rng_fill(void *ctx, size_t size, uint8_t data[size]) {
 static void sim_trace_address(sim_t *sim,
                               char const *what,
                               uint64_t value,
-                              socket_address_t const *address) {
+                              pcp_socket_address_t const *address) {
   auto const entry = &sim->trace[sim->trace_count++ % SIM_MAX_TRACE];
   *entry = (sim_trace_entry_t){
       .at = sim->now,
@@ -54,8 +54,8 @@ static void sim_print_trace(sim_t const *sim) {
     printf("  %8" PRIu64 ".%03" PRIu64 "  %s %" PRIu64, elapsed / 1000,
            elapsed % 1000, entry->what, entry->value);
     if (entry->has_address) {
-      char address[SOCKET_ADDRESS_STRING_LENGTH];
-      socket_address_to_string(sizeof(address), address, &entry->address);
+      char address[PCP_SOCKET_ADDRESS_STRING_LENGTH];
+      pcp_socket_address_to_string(sizeof(address), address, &entry->address);
       printf(" at %s", address);
     }
     printf("\n");
@@ -110,7 +110,7 @@ static void sim_on_client_event(void *ctx, pcp_event_t const *event) {
 static void sim_on_client_requested(void *ctx,
                                     pcp_handle_or_error_t result,
                                     pcp_protocol_t protocol,
-                                    port_t port) {
+                                    pcp_port_t port) {
   sim_t *sim = ctx;
   TEST_ASSERT_TRUE_MESSAGE(result.has_value, "the map request failed");
   sim_observer_on_request(&sim->observer, result.value, protocol, port);
@@ -211,12 +211,12 @@ void sim_start(sim_t *sim) {
   sim->started = sim_random(&sim->rng_state) >> 24;
   sim->now = sim->started;
 
-  sim->local = ip_address_from_octets(10, 0, 0, 2);
+  sim->local = pcp_ip_address_from_octets(10, 0, 0, 2);
   sim_network_start(&sim->network, SIM_LATENCY);
   // its own sequence, so the ports it picks don't change the client's nonces
   // and jitter
   sim->server.rng = sim->seed ^ 0x736572766572;
-  sim_server_start(&sim->server, ip_address_from_octets(203, 0, 113, 7),
+  sim_server_start(&sim->server, pcp_ip_address_from_octets(203, 0, 113, 7),
                    sim->now);
   sim_observer_start(&sim->observer);
 
@@ -289,7 +289,7 @@ void sim_inject_forged_response(sim_t *sim, pcp_handle_t handle) {
   sim_inject(sim, size, data);
 }
 
-socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle) {
+pcp_socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle) {
   auto const mapping = sim_observer_find(&sim->observer, handle);
   TEST_ASSERT_EQUAL_MESSAGE(SIM_OBSERVED_MAPPED, mapping->state,
                             "the application has no address for this handle");
@@ -311,7 +311,7 @@ void sim_assert_mapped(sim_t *sim, pcp_handle_t handle) {
                                            mapping->protocol, mapping->port);
   TEST_ASSERT_NOT_NULL_MESSAGE(lease, "the server has no lease for it");
   TEST_ASSERT_EQUAL_MESSAGE(
-      0, socket_address_cmp(&lease->external, &mapping->external),
+      0, pcp_socket_address_cmp(&lease->external, &mapping->external),
       "the application and server disagree on the address");
 }
 

@@ -152,21 +152,22 @@ bool pcp_mapping_awaits(pcp_mapping_t const *mapping,
 
 // copy an address between the request and response, which store it the same
 // way
-static socket_address_t pcp_mapping_copy_address(uint16_t *port,
-                                                 uint8_t ip[16],
-                                                 uint16_t granted_port,
-                                                 uint8_t const granted_ip[16]) {
+static pcp_socket_address_t
+pcp_mapping_copy_address(uint16_t *port,
+                         uint8_t ip[16],
+                         uint16_t granted_port,
+                         uint8_t const granted_ip[16]) {
   *port = granted_port;
   memcpy(ip, granted_ip, 16);
 
-  socket_address_t result = {.port = granted_port};
+  pcp_socket_address_t result = {.port = granted_port};
   memcpy(result.ip.addr, granted_ip, sizeof(result.ip.addr));
   return result;
 }
 
 // the address the server granted, which renewals and re-requests ask for again
-static socket_address_t pcp_mapping_granted(pcp_mapping_t *mapping,
-                                            pcp_response_t const *response) {
+static pcp_socket_address_t
+pcp_mapping_granted(pcp_mapping_t *mapping, pcp_response_t const *response) {
   assert(response->opcode == PCP_OPCODE_MAP ||
          response->opcode == PCP_OPCODE_PEER);
 
@@ -378,7 +379,8 @@ static bool pcp_mapping_report(pcp_mapping_t *mapping, pcp_event_t *out) {
       return false;
     }
 
-    *last_mapped = (optional_socket_address_t){.has_value = false, .value = {}};
+    *last_mapped =
+        (pcp_optional_socket_address_t){.has_value = false, .value = {}};
     *out = (pcp_event_t){
         .type = PCP_EVENT_UNMAPPED,
         .unmapped = {.handle = mapping->handle},
@@ -387,12 +389,12 @@ static bool pcp_mapping_report(pcp_mapping_t *mapping, pcp_event_t *out) {
   case ACTIVE: {
     auto const external = mapping->state.active.lease.external;
     if (last_mapped->has_value &&
-        socket_address_cmp(&last_mapped->value, &external) == 0) {
+        pcp_socket_address_cmp(&last_mapped->value, &external) == 0) {
       return false;
     }
 
     *last_mapped =
-        (optional_socket_address_t){.has_value = true, .value = external};
+        (pcp_optional_socket_address_t){.has_value = true, .value = external};
     *out = (pcp_event_t){
         .type = PCP_EVENT_MAPPED,
         .mapped = {.handle = mapping->handle, .external = external},

@@ -101,7 +101,7 @@ void pcp_session_end(pcp_session_t *session) {
   FREE(session->config.allocator, session);
 }
 
-static pcp_handle_or_error_t pcp_session_error(errno_t error) {
+static pcp_handle_or_error_t pcp_session_error(int error) {
   return (pcp_handle_or_error_t){
       .has_value = false,
       .error = error,
@@ -111,7 +111,7 @@ static pcp_handle_or_error_t pcp_session_error(errno_t error) {
 // an address as the wire format stores it
 static void pcp_session_set_address(uint16_t *port,
                                     uint8_t ip[16],
-                                    socket_address_t address) {
+                                    pcp_socket_address_t address) {
   *port = address.port;
   memcpy(ip, address.ip.addr, sizeof(address.ip.addr));
 }
@@ -167,8 +167,8 @@ pcp_session_add(pcp_session_t *session,
 pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
                                               pcp_time_s_t lifetime,
                                               pcp_protocol_t protocol,
-                                              port_t port,
-                                              socket_address_t external,
+                                              pcp_port_t port,
+                                              pcp_socket_address_t external,
                                               size_t count,
                                               pcp_option_t const options[]) {
   assert(session);
@@ -191,9 +191,9 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
 pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
                                                pcp_time_s_t lifetime,
                                                pcp_protocol_t protocol,
-                                               port_t port,
-                                               socket_address_t external,
-                                               socket_address_t peer,
+                                               pcp_port_t port,
+                                               pcp_socket_address_t external,
+                                               pcp_socket_address_t peer,
                                                size_t count,
                                                pcp_option_t const options[]) {
   assert(session);

@@ -12,13 +12,13 @@ static constexpr size_t SIM_OBSERVER_MAX_EVENTS = 32;
 typedef struct sim_observed_mapping {
   pcp_handle_t handle;
   pcp_protocol_t protocol;
-  port_t port;
+  pcp_port_t port;
   enum {
     SIM_OBSERVED_WAITING, // requested or unmapped, so without an address
     SIM_OBSERVED_MAPPED,
     SIM_OBSERVED_FINISHED, // failed or released, no more events allowed
   } state;
-  socket_address_t external;
+  pcp_socket_address_t external;
   pcp_result_t result;
   size_t event_count;
   int events[SIM_OBSERVER_MAX_EVENTS];
@@ -34,7 +34,7 @@ void sim_observer_start(sim_observer_t *observer);
 void sim_observer_on_request(sim_observer_t *observer,
                              pcp_handle_t handle,
                              pcp_protocol_t protocol,
-                             port_t port);
+                             pcp_port_t port);
 
 void sim_observer_on_release(sim_observer_t *observer, pcp_handle_t handle);
 

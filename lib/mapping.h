@@ -9,7 +9,7 @@
  * @brief What the server granted
  */
 typedef struct pcp_mapping_lease {
-  socket_address_t external;
+  pcp_socket_address_t external;
   pcp_time_ms_t granted;
   pcp_time_ms_t lifetime;
 } pcp_mapping_lease_t;
@@ -56,7 +56,7 @@ typedef struct pcp_mapping {
   pcp_mapping_state_t state;
   /// Address from the last MAPPED event, cleared by UNMAPPED. Only used by
   /// pcp_mapping_report() to figure out which event to send next.
-  optional_socket_address_t last_mapped;
+  pcp_optional_socket_address_t last_mapped;
   size_t count;
   pcp_option_t options[];
 } pcp_mapping_t;

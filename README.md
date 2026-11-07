@@ -55,7 +55,7 @@ pcp_session_t *session = pcp_session_begin((pcp_config_t){
 auto const handle =
     pcp_session_map_request(session, 3600, PCP_PROTOCOL_UDP, 12345,
                             // any external port, on an IPv4 address
-                            (socket_address_t){.ip = ip_address_any_v4},
+                            (pcp_socket_address_t){.ip = pcp_ip_address_any_v4},
                             0, nullptr);
 
 while (running) {
