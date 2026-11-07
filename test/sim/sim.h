@@ -2,7 +2,9 @@
 
 #include <pcp/pcp.h>
 
+#include "client.h"
 #include "network.h"
+#include "observer.h"
 #include "server.h"
 
 // A simulated world for testing the client end to end. This is what scenarios
@@ -13,65 +15,95 @@
 // - server.h, a PCP server with real leases
 // - observer.h, which checks the application only hears what pcp.h promises
 //
-// There's one world at a time, so it can be cleaned up and reported on after a
-// failed test unwinds (see sim_teardown).
+// A world only lives on the stack of sim_run_scenario, which also reports it
+// and ends its session.
 
 static constexpr sim_duration_ms_t SIM_SECOND = 1000;
 static constexpr sim_duration_ms_t SIM_MINUTE = 60 * SIM_SECOND;
 static constexpr sim_duration_ms_t SIM_HOUR = 60 * SIM_MINUTE;
 
-typedef struct sim_config {
-  /// Where all of the world's randomness comes from
+static constexpr size_t SIM_MAX_TRACE = 1024;
+
+/**
+ * @brief One line of a scenario's timeline
+ */
+typedef struct sim_trace_entry {
+  pcp_time_ms_t at;
+  char const *what;
+  uint64_t value;
+  bool has_address;
+  socket_address_t address;
+} sim_trace_entry_t;
+
+typedef struct sim {
+  /// Where the client's randomness and the clock's starting point come from,
+  /// and what a behavior's randomness should start from
   uint64_t seed;
-} sim_config_t;
+  uint64_t rng_state;
+  pcp_time_ms_t started;
+  pcp_time_ms_t now;
+  ip_address_t local;
 
-void sim_start(sim_config_t config);
+  sim_client_t client;
+  sim_observer_t observer;
+  sim_server_t server;
+  sim_network_t network;
+
+  /// From the client's last run
+  pcp_optional_time_ms_t deadline;
+  size_t events_this_run;
+
+  size_t trace_count;
+  sim_trace_entry_t trace[SIM_MAX_TRACE];
+} sim_t;
+
+typedef void (*sim_scenario_t)(sim_t *sim);
 
 /**
- * @brief Tear the world down. Safe to call without one.
+ * @brief Run a scenario once per seed, from 1 to `seeds`, each in a new world
+ *
+ * Prints the timeline of the first seed, and of a seed that fails, which is
+ * also where it stops.
  */
-void sim_end();
+void sim_run_scenario(sim_scenario_t scenario, uint64_t seeds);
 
-/**
- * @brief Report the world after a failed test and end it, for tearDown
- */
-void sim_teardown();
+void sim_start(sim_t *sim);
 
-void sim_run_for(sim_duration_ms_t duration);
+void sim_run_for(sim_t *sim, sim_duration_ms_t duration);
 
-/**
- * @brief Request a mapping like the application would
- */
-pcp_handle_t
-sim_map(pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port);
+pcp_handle_t sim_map(sim_t *sim,
+                     pcp_time_s_t lifetime,
+                     pcp_protocol_t protocol,
+                     port_t port);
 
-void sim_release(pcp_handle_t handle);
+void sim_release(sim_t *sim, pcp_handle_t handle);
 
-socket_address_t sim_external(pcp_handle_t handle);
+socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle);
 
-sim_server_stats_t sim_stats();
+sim_server_stats_t sim_stats(sim_t const *sim);
 
 /**
  * @brief Check the application thinks `handle` is mapped, and that the server
  *        agrees on the address
  */
-void sim_assert_mapped(pcp_handle_t handle);
+void sim_assert_mapped(sim_t *sim, pcp_handle_t handle);
 
-void sim_assert_no_lease(pcp_handle_t handle);
+void sim_assert_no_lease(sim_t *sim, pcp_handle_t handle);
 
 /**
  * @brief Check nothing is in flight and the client has nothing scheduled
  */
-void sim_assert_idle();
+void sim_assert_idle(sim_t const *sim);
 
 /**
  * @brief Check these are all the events `handle` got, not counting sends
  */
-void sim_assert_events(pcp_handle_t handle,
+void sim_assert_events(sim_t const *sim,
+                       pcp_handle_t handle,
                        size_t count,
                        int const events[count]);
 
-#define SIM_ASSERT_EVENTS(handle, ...)                                         \
-  sim_assert_events((handle),                                                  \
+#define SIM_ASSERT_EVENTS(sim, handle, ...)                                    \
+  sim_assert_events((sim), (handle),                                           \
                     sizeof((int const[]){__VA_ARGS__}) / sizeof(int),          \
                     (int const[]){__VA_ARGS__})

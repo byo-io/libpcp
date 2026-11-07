@@ -1,8 +1,7 @@
 #include "runner.h"
-#include "sim.h"
 
 void setUp() {}
-void tearDown() { sim_teardown(); }
+void tearDown() {}
 
 extern void scenario_tests();
 
