@@ -28,6 +28,7 @@ renewals without waiting for anything.
 
 - MAP and PEER mappings, with the THIRD_PARTY and FILTER options
 - Retransmissions with exponential backoff and jitter
+- Suggesting an external address and port, or just an address family
 - Lease renewals, keeping the same external address when possible
 - Detecting server restarts, including unsolicited ANNOUNCE messages
 - Failing mappings with `UNSUPP_VERSION` when the server doesn't speak PCP
@@ -52,7 +53,10 @@ pcp_session_t *session = pcp_session_begin((pcp_config_t){
 });
 
 auto const handle =
-    pcp_session_map_request(session, 3600, UDP, 12345, 0, nullptr);
+    pcp_session_map_request(session, 3600, UDP, 12345,
+                            // any external port, on an IPv4 address
+                            (socket_address_t){.ip = ip_address_any_v4},
+                            0, nullptr);
 
 while (running) {
   pcp_event_t event;

@@ -18,9 +18,10 @@ bool sim_client_start(sim_client_t *client,
 pcp_handle_or_error_t sim_client_map(sim_client_t *client,
                                      pcp_time_s_t lifetime,
                                      pcp_protocol_t protocol,
-                                     port_t port) {
-  auto const result = pcp_session_map_request(client->session, lifetime,
-                                              protocol, port, 0, nullptr);
+                                     port_t port,
+                                     socket_address_t external) {
+  auto const result = pcp_session_map_request(
+      client->session, lifetime, protocol, port, external, 0, nullptr);
   client->io.on_requested(client->io.ctx, result, protocol, port);
   return result;
 }
