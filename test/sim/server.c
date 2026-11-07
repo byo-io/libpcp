@@ -24,7 +24,7 @@ static void check_request(ip_address_t const *source,
   TEST_ASSERT_MESSAGE(
       memcmp(request->client_ip, source->addr, sizeof(source->addr)) == 0,
       "client address doesn't match the source address");
-  TEST_ASSERT_MESSAGE(request->body.map_body.protocol != ALL &&
+  TEST_ASSERT_MESSAGE(request->body.map_body.protocol != PCP_PROTOCOL_ALL &&
                           request->body.map_body.internal_port != 0,
                       "mappings of all protocols or ports aren't simulated");
 }
@@ -119,7 +119,7 @@ static pcp_result_t apply_request(sim_server_t *server,
                                   struct pcp_request const *request,
                                   sim_server_decision_t const *decision,
                                   struct pcp_map_response *body) {
-  if (decision->refuse != SUCCESS) {
+  if (decision->refuse != PCP_RESULT_SUCCESS) {
     ++server->stats.refused;
     body->lifetime = decision->lifetime;
     return decision->refuse;
@@ -131,7 +131,7 @@ static pcp_result_t apply_request(sim_server_t *server,
   // only the nonce that created a mapping can change it, section 11.3
   if (lease && memcmp(lease->nonce, map->nonce, sizeof(lease->nonce)) != 0) {
     body->lifetime = ERROR_LIFETIME;
-    return NOT_AUTHORIZED;
+    return PCP_RESULT_NOT_AUTHORIZED;
   }
 
   // a delete succeeds whether or not there's anything to delete, section 15.1
@@ -141,7 +141,7 @@ static pcp_result_t apply_request(sim_server_t *server,
       lease->used = false;
       ++server->stats.deleted;
     }
-    return SUCCESS;
+    return PCP_RESULT_SUCCESS;
   }
 
   if (lease) {
@@ -158,7 +158,7 @@ static pcp_result_t apply_request(sim_server_t *server,
 
   lease->expires = now + (pcp_time_ms_t)body->lifetime * 1000;
   set_external(body, &lease->external);
-  return SUCCESS;
+  return PCP_RESULT_SUCCESS;
 }
 
 static uint32_t epoch_of(sim_server_t const *server, pcp_time_ms_t now) {
@@ -225,8 +225,8 @@ size_t sim_server_announce(sim_server_t const *server,
   size_t rest_size = 0;
   TEST_ASSERT_EQUAL(PCP_OK, pcp_announce_response_encode(
                                 &body, rest, sizeof(rest), &rest_size));
-  return write_header(VERSION, PCP_OPCODE_ANNOUNCE, SUCCESS, rest_size, rest,
-                      data);
+  return write_header(VERSION, PCP_OPCODE_ANNOUNCE, PCP_RESULT_SUCCESS,
+                      rest_size, rest, data);
 }
 
 size_t sim_server_forge_response(sim_server_t const *server,
@@ -243,7 +243,7 @@ size_t sim_server_forge_response(sim_server_t const *server,
   };
   memset(body.nonce, 0xAA, sizeof(body.nonce));
   memcpy(body.external_ip, server->external_ip.addr, sizeof(body.external_ip));
-  return write_response(SUCCESS, &body, data);
+  return write_response(PCP_RESULT_SUCCESS, &body, data);
 }
 
 sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
@@ -274,7 +274,8 @@ sim_server_reply_t sim_server_on_datagram(sim_server_t *server,
         "the behavior's reply is too long");
     // where both PCP and NAT-PMP have their result, for the timeline
     sim_server_reply_t reply = {
-        .result = decision.reply_size >= 4 ? decision.reply[3] : SUCCESS,
+        .result =
+            decision.reply_size >= 4 ? decision.reply[3] : PCP_RESULT_SUCCESS,
         .size = decision.reply_size,
     };
     memcpy(reply.data, decision.reply, decision.reply_size);

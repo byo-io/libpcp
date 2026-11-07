@@ -77,19 +77,19 @@ pcp_session_t *pcp_session_begin(pcp_config_t config);
 void pcp_session_end(pcp_session_t *session);
 
 typedef enum pcp_protocol : uint8_t {
-  ALL = 0,
-  TCP = 6,
-  UDP = 17,
+  PCP_PROTOCOL_ALL = 0,
+  PCP_PROTOCOL_TCP = 6,
+  PCP_PROTOCOL_UDP = 17,
 } pcp_protocol_t;
 
 typedef struct pcp_option {
   enum {
     /// Map on behalf of another internal host (MAP and PEER)
-    THIRD_PARTY = 1,
+    PCP_OPTION_THIRD_PARTY = 1,
     /// Only allow traffic from `filter.peers` (MAP only). Filters add up across
     /// requests, renewals included, and a prefix of 0 clears them. Not sent
     /// when releasing.
-    FILTER = 3,
+    PCP_OPTION_FILTER = 3,
   } type;
   union {
     struct {
@@ -120,7 +120,8 @@ typedef struct pcp_handle_or_error {
  *
  * @param[in] session  The session that owns this request
  * @param[in] lifetime The requested lifetime of the mapping (not 0)
- * @param[in] protocol The protocol the mapping should affect (ALL, UDP, or TCP)
+ * @param[in] protocol The protocol the mapping should affect
+ *                     (PCP_PROTOCOL_ALL, PCP_PROTOCOL_UDP, or PCP_PROTOCOL_TCP)
  * @param[in] port     The internal port for this mapping
  * @param[in] external The external address to ask for, which the server may
  *                     not grant. Port 0 means any port, and ip_address_any_v4
@@ -148,7 +149,8 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
  *
  * @param[in] session  The session that owns this request
  * @param[in] lifetime The requested lifetime of the mapping (not 0)
- * @param[in] protocol The protocol the mapping should affect (ALL, UDP, or TCP)
+ * @param[in] protocol The protocol the mapping should affect
+ *                     (PCP_PROTOCOL_ALL, PCP_PROTOCOL_UDP, or PCP_PROTOCOL_TCP)
  * @param[in] port     The internal port for the mapping
  * @param[in] external The external address to ask for, as in
  *                     pcp_session_map_request
@@ -188,20 +190,20 @@ void pcp_session_release(pcp_session_t *session, pcp_handle_t handle);
 constexpr size_t PCP_PACKET_MAX_SIZE = 1100;
 
 typedef enum pcp_result : uint8_t {
-  SUCCESS = 0,
-  UNSUPP_VERSION = 1,
-  NOT_AUTHORIZED = 2,
-  MALFORMED_REQUEST = 3,
-  UNSUPP_OPCODE = 4,
-  UNSUPP_OPTION = 5,
-  MALFORMED_OPTION = 6,
-  NETWORK_FAILURE = 7,
-  NO_RESOURCES = 8,
-  UNSUPP_PROTOCOL = 9,
-  USER_EX_QUOTA = 10,
-  CANNOT_PROVIDE_EXTERNAL = 11,
-  ADDRESS_MISMATCH = 12,
-  EXCESSIVE_REMOTE_PEERS = 13,
+  PCP_RESULT_SUCCESS = 0,
+  PCP_RESULT_UNSUPP_VERSION = 1,
+  PCP_RESULT_NOT_AUTHORIZED = 2,
+  PCP_RESULT_MALFORMED_REQUEST = 3,
+  PCP_RESULT_UNSUPP_OPCODE = 4,
+  PCP_RESULT_UNSUPP_OPTION = 5,
+  PCP_RESULT_MALFORMED_OPTION = 6,
+  PCP_RESULT_NETWORK_FAILURE = 7,
+  PCP_RESULT_NO_RESOURCES = 8,
+  PCP_RESULT_UNSUPP_PROTOCOL = 9,
+  PCP_RESULT_USER_EX_QUOTA = 10,
+  PCP_RESULT_CANNOT_PROVIDE_EXTERNAL = 11,
+  PCP_RESULT_ADDRESS_MISMATCH = 12,
+  PCP_RESULT_EXCESSIVE_REMOTE_PEERS = 13,
 } pcp_result_t;
 
 /**
@@ -273,9 +275,9 @@ pcp_event_t pcp_session_poll(pcp_session_t *session, pcp_time_ms_t now);
  * @brief Hand a datagram received from the PCP server to the session
  *
  * If the server doesn't speak PCP version 2, its UNSUPP_VERSION answer fails
- * every mapping with UNSUPP_VERSION. That includes routers that only speak
- * NAT-PMP (RFC 6886), whose answer has version 0 (RFC 6887 appendix A), so the
- * application can fall back to a NAT-PMP client on the same socket.
+ * every mapping with PCP_RESULT_UNSUPP_VERSION. That includes routers that only
+ * speak NAT-PMP (RFC 6886), whose answer has version 0 (RFC 6887 appendix A),
+ * so the application can fall back to a NAT-PMP client on the same socket.
  *
  * The application should poll the session afterwards, see pcp_session_poll.
  *

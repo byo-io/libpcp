@@ -285,8 +285,8 @@ void pcp_session_on_datagram(pcp_session_t *session,
     // says nothing about our requests, including what isn't a response. The
     // exception is NAT-PMP's answer, which has no R bit.
     if ((header.value.version == 0 || header.value.r == 1) &&
-        header.value.result == UNSUPP_VERSION) {
-      pcp_session_abandon(session, UNSUPP_VERSION);
+        header.value.result == PCP_RESULT_UNSUPP_VERSION) {
+      pcp_session_abandon(session, PCP_RESULT_UNSUPP_VERSION);
     }
     return;
   }
