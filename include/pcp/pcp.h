@@ -189,6 +189,13 @@ void pcp_session_release(pcp_session_t *session, pcp_handle_t handle);
 
 constexpr size_t PCP_PACKET_MAX_SIZE = 1100;
 
+/**
+ * @brief A result code from the server
+ *
+ * Servers can send codes that aren't listed here, e.g. from extensions, and
+ * PCP_EVENT_FAILED passes them on as they are. Treat a code you don't know as
+ * any other failure.
+ */
 typedef enum pcp_result : uint8_t {
   PCP_RESULT_SUCCESS = 0,
   PCP_RESULT_UNSUPP_VERSION = 1,
@@ -211,6 +218,9 @@ typedef enum pcp_result : uint8_t {
  *
  * The address from PCP_EVENT_MAPPED is valid until the next PCP_EVENT_UNMAPPED
  * or PCP_EVENT_FAILED for the same handle.
+ *
+ * Later versions may add event types, so ignore any you don't know, e.g. with
+ * a default case.
  */
 typedef struct pcp_event {
   enum {
@@ -276,8 +286,8 @@ pcp_event_t pcp_session_poll(pcp_session_t *session, pcp_time_ms_t now);
  *
  * If the server doesn't speak PCP version 2, its UNSUPP_VERSION answer fails
  * every mapping with PCP_RESULT_UNSUPP_VERSION. That includes routers that only
- * speak NAT-PMP (RFC 6886), whose answer has version 0 (RFC 6887 appendix A),
- * so the application can fall back to a NAT-PMP client on the same socket.
+ * speak NAT-PMP, whose answer has version 0, so the application can fall back
+ * to a NAT-PMP client on the same socket.
  *
  * The application should poll the session afterwards, see pcp_session_poll.
  *
