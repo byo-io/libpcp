@@ -1,3 +1,4 @@
+#include <string.h>
 #include <unity.h>
 
 #include "runner.h"
@@ -526,6 +527,27 @@ SCENARIO(test_sim_ignores_forged_response) {
   SIM_ASSERT_EVENTS(sim, handle, PCP_EVENT_MAPPED);
 }
 
+SCENARIO(test_sim_ignores_forged_response_with_old_epoch) {
+  auto const handle = start_mapped(sim);
+  auto const external = sim_external(sim, handle);
+  sim_run_for(sim, BEFORE_RENEWAL);
+  auto const requests = sim_stats(sim).requests;
+
+  // its epoch would say the server restarted, which only a response to one of
+  // our requests can (RFC 6887 section 8.3)
+  uint8_t data[SIM_SERVER_RESPONSE_SIZE];
+  auto const size =
+      sim_server_forge_response(&sim->server, sim->now, UDP, PORT, data);
+  memset(data + 8, 0, 4);
+  sim_inject(sim, size, data);
+
+  sim_run_for(sim, SIM_SECOND);
+  sim_assert_mapped(sim, handle);
+  assert_same_address(external, sim_external(sim, handle));
+  SIM_ASSERT_EVENTS(sim, handle, PCP_EVENT_MAPPED);
+  TEST_ASSERT_EQUAL_size_t(requests, sim_stats(sim).requests);
+}
+
 // a copy of the first response gets stuck in the network until the first
 // renewal is nearly due
 static sim_fate_t hold_copy_of_first_response(void *ctx,
@@ -627,6 +649,7 @@ void scenario_tests() {
   RUN_TEST(test_sim_ignores_malformed_datagrams);
   RUN_TEST(test_sim_ignores_other_version_without_response_bit);
   RUN_TEST(test_sim_ignores_forged_response);
+  RUN_TEST(test_sim_ignores_forged_response_with_old_epoch);
   RUN_TEST(test_sim_recovers_from_stale_response);
   RUN_TEST(test_sim_many_mappings);
 }
