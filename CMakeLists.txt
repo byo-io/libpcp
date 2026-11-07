@@ -9,6 +9,7 @@ option(PCP_BUILD_FUZZER "Build the libFuzzer harness for the wire format (clang)
        OFF)
 option(PCP_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"
        ${PROJECT_IS_TOP_LEVEL})
+option(PCP_INSTALL "Generate the install rules" ${PROJECT_IS_TOP_LEVEL})
 
 include(cmake/warnings.cmake)
 
