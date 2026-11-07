@@ -113,6 +113,22 @@ static void sim_on_client_event(void *ctx, pcp_event_t const *event) {
   sim_observer_on_event(&sim->observer, event);
 }
 
+static void sim_on_client_requested(void *ctx,
+                                    pcp_handle_or_error_t result,
+                                    pcp_protocol_t protocol,
+                                    port_t port) {
+  sim_t *sim = ctx;
+  TEST_ASSERT_TRUE_MESSAGE(result.has_value, "the map request failed");
+  sim_observer_on_request(&sim->observer, result.value, protocol, port);
+  sim_trace(sim, "application requested mapping, handle", result.value);
+}
+
+static void sim_on_client_released(void *ctx, pcp_handle_t handle) {
+  sim_t *sim = ctx;
+  sim_trace(sim, "application released mapping, handle", handle);
+  sim_observer_on_release(&sim->observer, handle);
+}
+
 static void
 sim_send_to_client(sim_t *sim, size_t size, uint8_t const data[size]) {
   sim_network_send(&sim->network, sim->now, SIM_ENDPOINT_CLIENT, size, data);
@@ -212,6 +228,8 @@ void sim_start(sim_t *sim) {
                                     (sim_io_t){
                                         .send = sim_on_client_send,
                                         .on_event = sim_on_client_event,
+                                        .on_requested = sim_on_client_requested,
+                                        .on_released = sim_on_client_released,
                                         .ctx = sim,
                                     }));
 }
@@ -226,25 +244,6 @@ void sim_run_for(sim_t *sim, sim_duration_ms_t duration) {
     }
     sim->now = sim_next_time(sim, until);
   }
-}
-
-pcp_handle_t sim_map(sim_t *sim,
-                     pcp_time_s_t lifetime,
-                     pcp_protocol_t protocol,
-                     port_t port) {
-  auto const handle = pcp_session_map_request(sim->client.session, lifetime,
-                                              protocol, port, 0, nullptr);
-  TEST_ASSERT_TRUE_MESSAGE(handle.has_value, "the map request failed");
-
-  sim_observer_on_request(&sim->observer, handle.value, protocol, port);
-  sim_trace(sim, "application requested mapping, handle", handle.value);
-  return handle.value;
-}
-
-void sim_release(sim_t *sim, pcp_handle_t handle) {
-  sim_trace(sim, "application released mapping, handle", handle);
-  pcp_session_release(sim->client.session, handle);
-  sim_observer_on_release(&sim->observer, handle);
 }
 
 socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle) {

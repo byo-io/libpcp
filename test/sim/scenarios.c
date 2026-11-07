@@ -21,9 +21,11 @@ static void assert_same_address(socket_address_t expected,
                                 "the external address changed");
 }
 
+// asks for a mapping like the application would, a request that fails has
+// already failed the scenario
 static pcp_handle_t
 map(sim_t *sim, pcp_time_s_t lifetime, pcp_protocol_t protocol, port_t port) {
-  return sim_map(sim, lifetime, protocol, port);
+  return sim_client_map(&sim->client, lifetime, protocol, port).value;
 }
 
 // a mapping the server has granted, with some time left until its renewal
@@ -61,7 +63,7 @@ SCENARIO(test_sim_full_lifecycle) {
   TEST_ASSERT_LESS_OR_EQUAL_size_t(24 * 3600 / (LIFETIME / 2), stats.renewed);
   TEST_ASSERT_EQUAL_size_t(1 + stats.renewed, stats.requests);
 
-  sim_release(sim, handle);
+  sim_client_release(&sim->client, handle);
   sim_run_for(sim, SIM_SECOND);
   sim_assert_no_lease(sim, handle);
   sim_assert_idle(sim);

@@ -15,6 +15,21 @@ bool sim_client_start(sim_client_t *client,
   return client->session != nullptr;
 }
 
+pcp_handle_or_error_t sim_client_map(sim_client_t *client,
+                                     pcp_time_s_t lifetime,
+                                     pcp_protocol_t protocol,
+                                     port_t port) {
+  auto const result = pcp_session_map_request(client->session, lifetime,
+                                              protocol, port, 0, nullptr);
+  client->io.on_requested(client->io.ctx, result, protocol, port);
+  return result;
+}
+
+void sim_client_release(sim_client_t *client, pcp_handle_t handle) {
+  pcp_session_release(client->session, handle);
+  client->io.on_released(client->io.ctx, handle);
+}
+
 pcp_optional_time_ms_t sim_client_run(sim_client_t *client, pcp_time_ms_t now) {
   while (true) {
     auto const event = pcp_session_poll(client->session, now);
