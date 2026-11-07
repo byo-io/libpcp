@@ -283,13 +283,66 @@ void sim_assert_idle(sim_t const *sim) {
                             "the client still has something scheduled");
 }
 
+// for messages, as the names in pcp.h without their prefix
+static char const *sim_event_name(int type) {
+  switch (type) {
+  case PCP_EVENT_SEND:
+    return "SEND";
+  case PCP_EVENT_MAPPED:
+    return "MAPPED";
+  case PCP_EVENT_UNMAPPED:
+    return "UNMAPPED";
+  case PCP_EVENT_FAILED:
+    return "FAILED";
+  case PCP_EVENT_TIMEOUT:
+    return "TIMEOUT";
+  default:
+    return "an unknown event";
+  }
+}
+
+// appends the events' names to `text`, which holds `used` of its `size` bytes
+static size_t sim_describe_events(size_t count,
+                                  int const events[count],
+                                  size_t size,
+                                  char text[size],
+                                  size_t used) {
+  if (count == 0) {
+    return used + (size_t)snprintf(text + used, size - used, "nothing");
+  }
+
+  for (size_t i = 0; i < count && used < size; ++i) {
+    used += (size_t)snprintf(text + used, size - used, "%s%s",
+                             i == 0 ? "" : ", ", sim_event_name(events[i]));
+  }
+  return used;
+}
+
 void sim_assert_events(sim_t const *sim,
                        pcp_handle_t handle,
                        size_t count,
                        int const events[count]) {
   auto const mapping = sim_observer_find(&sim->observer, handle);
-  TEST_ASSERT_EQUAL_size_t_MESSAGE(count, mapping->event_count,
-                                   "wrong number of events");
-  TEST_ASSERT_EQUAL_INT_ARRAY_MESSAGE(events, mapping->events, count,
-                                      "wrong events");
+
+  auto same = count == mapping->event_count;
+  for (size_t i = 0; same && i < count; ++i) {
+    same = events[i] == mapping->events[i];
+  }
+  if (same) {
+    return;
+  }
+
+  char message[256];
+  size_t used =
+      (size_t)snprintf(message, sizeof(message), "expected the events ");
+  used = sim_describe_events(count, events, sizeof(message), message, used);
+  if (used < sizeof(message)) {
+    used +=
+        (size_t)snprintf(message + used, sizeof(message) - used, " but got ");
+  }
+  if (used < sizeof(message)) {
+    sim_describe_events(mapping->event_count, mapping->events, sizeof(message),
+                        message, used);
+  }
+  TEST_FAIL_MESSAGE(message);
 }
