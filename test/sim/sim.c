@@ -213,6 +213,9 @@ void sim_start(sim_t *sim) {
 
   sim->local = ip_address_from_octets(10, 0, 0, 2);
   sim_network_start(&sim->network, SIM_LATENCY);
+  // its own sequence, so the ports it picks don't change the client's nonces
+  // and jitter
+  sim->server.rng = sim->seed ^ 0x736572766572;
   sim_server_start(&sim->server, ip_address_from_octets(203, 0, 113, 7),
                    sim->now);
   sim_observer_start(&sim->observer);
@@ -247,6 +250,10 @@ void sim_set_network_behavior(sim_t *sim, sim_network_behavior_t behavior) {
   sim_network_set_behavior(&sim->network, behavior);
 }
 
+void sim_set_server_behavior(sim_t *sim, sim_server_behavior_t behavior) {
+  sim_server_set_behavior(&sim->server, behavior);
+}
+
 socket_address_t sim_external(sim_t const *sim, pcp_handle_t handle) {
   auto const mapping = sim_observer_find(&sim->observer, handle);
   TEST_ASSERT_EQUAL_MESSAGE(SIM_OBSERVED_MAPPED, mapping->state,
@@ -279,6 +286,15 @@ void sim_assert_no_lease(sim_t *sim, pcp_handle_t handle) {
                                                  mapping->protocol,
                                                  mapping->port),
                            "the server still has a lease for it");
+}
+
+void sim_assert_failed(sim_t const *sim,
+                       pcp_handle_t handle,
+                       pcp_result_t result) {
+  auto const mapping = sim_observer_find(&sim->observer, handle);
+  TEST_ASSERT_EQUAL_MESSAGE(SIM_OBSERVED_FINISHED, mapping->state,
+                            "the application doesn't think it's over");
+  TEST_ASSERT_EQUAL_MESSAGE(result, mapping->result, "the wrong result");
 }
 
 void sim_assert_no_events(sim_t const *sim, pcp_handle_t handle) {
