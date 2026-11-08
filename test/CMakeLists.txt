@@ -21,7 +21,7 @@ function(pcp_add_test_executable target)
 
   target_link_libraries(${target}
     PRIVATE
-      pcp
+      pcp_testing
       unity)
 
   target_include_directories(${target}

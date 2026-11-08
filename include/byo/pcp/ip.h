@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "export.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,18 +31,22 @@ static constexpr pcp_ip_address_t pcp_ip_address_loopback_v6 = {
 /**
  * @brief Construct the IPv4 address a.b.c.d
  */
-pcp_ip_address_t
-pcp_ip_address_from_octets(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
+PCP_EXPORT pcp_ip_address_t pcp_ip_address_from_octets(uint8_t a,
+                                                       uint8_t b,
+                                                       uint8_t c,
+                                                       uint8_t d);
 
 /**
  * @brief Convert an IPv4 address from the sockets API
  */
-pcp_ip_address_t pcp_ip_address_from_in_addr(const struct in_addr *addr);
+PCP_EXPORT pcp_ip_address_t
+pcp_ip_address_from_in_addr(const struct in_addr *addr);
 
 /**
  * @brief Convert an IPv6 address from the sockets API
  */
-pcp_ip_address_t pcp_ip_address_from_in6_addr(const struct in6_addr *addr);
+PCP_EXPORT pcp_ip_address_t
+pcp_ip_address_from_in6_addr(const struct in6_addr *addr);
 
 typedef struct pcp_optional_ip_address {
   bool has_value;
@@ -52,7 +58,7 @@ typedef struct pcp_optional_ip_address {
  *
  * @returns The address, or nothing if `ip` isn't one
  */
-pcp_optional_ip_address_t pcp_ip_address_from_string(const char *ip);
+PCP_EXPORT pcp_optional_ip_address_t pcp_ip_address_from_string(const char *ip);
 
 static constexpr size_t PCP_IP_ADDRESS_STRING_LENGTH = 56;
 
@@ -65,13 +71,14 @@ static constexpr size_t PCP_IP_ADDRESS_STRING_LENGTH = 56;
  *
  * @returns The length of the text, or 0 if `dst` is too small
  */
-size_t
-pcp_ip_address_to_string(size_t size, char dst[], const pcp_ip_address_t *src);
+PCP_EXPORT size_t pcp_ip_address_to_string(size_t size,
+                                           char dst[],
+                                           const pcp_ip_address_t *src);
 
 /**
  * @brief Test whether IP is v4 or v6
  */
-bool pcp_ip_address_is_ipv4(const pcp_ip_address_t *ip);
+PCP_EXPORT bool pcp_ip_address_is_ipv4(const pcp_ip_address_t *ip);
 
 /**
  * @brief Describe an ip network with a prefix (CIDR)
@@ -90,8 +97,8 @@ typedef struct pcp_ip_network {
  * Example:
  *   pcp_ip_network_from_address(pcp_ip_address_from_octets(203, 0, 113, 0), 24)
  */
-pcp_ip_network_t pcp_ip_network_from_address(pcp_ip_address_t address,
-                                             uint8_t prefix);
+PCP_EXPORT pcp_ip_network_t
+pcp_ip_network_from_address(pcp_ip_address_t address, uint8_t prefix);
 
 typedef uint16_t pcp_port_t;
 
@@ -103,13 +110,13 @@ typedef struct pcp_socket_address {
 /**
  * @brief Convert an IPv4 socket address from the sockets API
  */
-pcp_socket_address_t
+PCP_EXPORT pcp_socket_address_t
 pcp_socket_address_from_sockaddr_in(const struct sockaddr_in *addr);
 
 /**
  * @brief Convert an IPv6 socket address from the sockets API
  */
-pcp_socket_address_t
+PCP_EXPORT pcp_socket_address_t
 pcp_socket_address_from_sockaddr_in6(const struct sockaddr_in6 *addr);
 
 typedef struct pcp_optional_socket_address {
@@ -122,7 +129,7 @@ typedef struct pcp_optional_socket_address {
  *
  * @returns The socket address, or nothing if `address` isn't in either form
  */
-pcp_optional_socket_address_t
+PCP_EXPORT pcp_optional_socket_address_t
 pcp_socket_address_from_string(const char *address);
 
 static constexpr size_t PCP_SOCKET_ADDRESS_STRING_LENGTH = 56;
@@ -137,9 +144,9 @@ static constexpr size_t PCP_SOCKET_ADDRESS_STRING_LENGTH = 56;
  *
  * @returns The length of the text, or 0 if `dst` is too small
  */
-size_t pcp_socket_address_to_string(size_t size,
-                                    char dst[],
-                                    const pcp_socket_address_t *src);
+PCP_EXPORT size_t pcp_socket_address_to_string(size_t size,
+                                               char dst[],
+                                               const pcp_socket_address_t *src);
 
 /**
  * @brief Compare two socket addresses like memcmp
@@ -148,8 +155,8 @@ size_t pcp_socket_address_to_string(size_t size,
  *
  * @returns 0 if they're equal
  */
-int pcp_socket_address_cmp(pcp_socket_address_t const *lhs,
-                           pcp_socket_address_t const *rhs);
+PCP_EXPORT int pcp_socket_address_cmp(pcp_socket_address_t const *lhs,
+                                      pcp_socket_address_t const *rhs);
 
 #ifdef __cplusplus
 }

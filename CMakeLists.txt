@@ -16,17 +16,24 @@ include(cmake/warnings.cmake)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ${PCP_WARNINGS_AS_ERRORS})
 
+# BUILD_TESTING comes from CTest. A project pulling in libpcp never builds its
+# tests, even if it builds its own. lib/ needs to know, since it builds a copy
+# of the library for the tests.
+if(PROJECT_IS_TOP_LEVEL)
+  include(CTest)
+endif()
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
+  set(PCP_BUILD_TESTS ON)
+else()
+  set(PCP_BUILD_TESTS OFF)
+endif()
+
 add_subdirectory(lib)
 
 if(PCP_BUILD_EXAMPLE)
   add_subdirectory(example)
 endif()
 
-# BUILD_TESTING comes from CTest. A project pulling in libpcp never builds its
-# tests, even if it builds its own
-if(PROJECT_IS_TOP_LEVEL)
-  include(CTest)
-  if(BUILD_TESTING)
-    add_subdirectory(test)
-  endif()
+if(PCP_BUILD_TESTS)
+  add_subdirectory(test)
 endif()

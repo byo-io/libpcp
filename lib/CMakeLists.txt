@@ -1,21 +1,61 @@
-add_library(pcp)
+# The library's sources and settings, shared by the library itself and the
+# static copy the tests use
+function(pcp_add_library target)
+  add_library(${target} ${ARGN})
+
+  target_compile_features(${target} PUBLIC c_std_23)
+
+  target_compile_definitions(${target}
+    PRIVATE
+      _POSIX_C_SOURCE=200112L)
+
+  target_sources(${target}
+    PRIVATE
+      ip.c
+      mapping.c
+      schedule.c
+      session.c
+      pcp/epoch.c
+      pcp/wire.c
+      pcp/pcp_gen.c)
+
+  target_sources(${target}
+    PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS ${PROJECT_SOURCE_DIR}/include
+      FILES
+        ${PROJECT_SOURCE_DIR}/include/byo/pcp/export.h
+        ${PROJECT_SOURCE_DIR}/include/byo/pcp/ip.h
+        ${PROJECT_SOURCE_DIR}/include/byo/pcp/pcp.h)
+
+  target_sources(${target}
+    PRIVATE
+      FILE_SET private_headers
+        TYPE HEADERS
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+        FILES
+          ${CMAKE_CURRENT_SOURCE_DIR}/duration.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/mapping.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/schedule.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/session.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/view.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/pcp/epoch.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/pcp/pcp_gen.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/pcp/wire.h)
+
+  # Only while building, so the installed library doesn't need the warnings
+  # target
+  target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:pcp_warnings>)
+endfunction()
+
+pcp_add_library(pcp)
 add_library(byo::pcp ALIAS pcp)
 
-target_compile_features(pcp PUBLIC c_std_23)
-
-target_compile_definitions(pcp
-  PRIVATE
-    _POSIX_C_SOURCE=200112L)
-
-target_sources(pcp
-  PRIVATE
-    ip.c
-    mapping.c
-    schedule.c
-    session.c
-    pcp/epoch.c
-    pcp/wire.c
-    pcp/pcp_gen.c)
+# The tests also call the library's internal functions, which the shared
+# library doesn't export
+if(PCP_BUILD_TESTS)
+  pcp_add_library(pcp_testing STATIC)
+endif()
 
 # The wire format is generated from pcp/pcp.pkt by pktc
 # (https://github.com/davidlwesten/pktc). The output is checked in, so pktc is
@@ -44,37 +84,12 @@ if(PKTC_EXECUTABLE)
     VERBATIM)
 endif()
 
-target_sources(pcp
-  PUBLIC
-  FILE_SET HEADERS
-  BASE_DIRS ${PROJECT_SOURCE_DIR}/include
-    FILES
-      ${PROJECT_SOURCE_DIR}/include/byo/pcp/ip.h
-      ${PROJECT_SOURCE_DIR}/include/byo/pcp/pcp.h)
-
-target_sources(pcp
-  PRIVATE
-    FILE_SET private_headers
-      TYPE HEADERS
-      BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-      FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/duration.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/mapping.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/schedule.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/session.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/view.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/pcp/epoch.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/pcp/pcp_gen.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/pcp/wire.h)
-
-# Only while building, so the installed library doesn't need the warnings
-# target
-target_link_libraries(pcp PRIVATE $<BUILD_INTERFACE:pcp_warnings>)
-
 # Installed as libbyo-pcp, since other projects already use libpcp. A shared
 # library's soname only changes with the major version.
+# Only functions marked with PCP_EXPORT are exported.
 set_target_properties(pcp PROPERTIES
   OUTPUT_NAME byo-pcp
+  C_VISIBILITY_PRESET hidden
   VERSION ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR})
 

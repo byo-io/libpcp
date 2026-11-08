@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdint.h>
 
+#include "export.h"
 #include "ip.h"
 
 #ifdef __cplusplus
@@ -65,7 +66,7 @@ typedef struct pcp_session pcp_session_t;
  *
  * @returns The session, or nullptr if it couldn't be allocated
  */
-pcp_session_t *pcp_session_begin(pcp_config_t config);
+PCP_EXPORT pcp_session_t *pcp_session_begin(pcp_config_t config);
 
 /**
  * @brief Free the session and its mappings
@@ -74,7 +75,7 @@ pcp_session_t *pcp_session_begin(pcp_config_t config);
  * For a clean shutdown, release all mappings and keep polling until
  * PCP_EVENT_TIMEOUT has no deadline.
  */
-void pcp_session_end(pcp_session_t *session);
+PCP_EXPORT void pcp_session_end(pcp_session_t *session);
 
 typedef enum pcp_protocol : uint8_t {
   PCP_PROTOCOL_ALL = 0,
@@ -136,13 +137,14 @@ typedef struct pcp_handle_or_error {
  * @returns The handle, or an error (EMSGSIZE if the options don't fit in a
  *          packet)
  */
-pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
-                                              pcp_time_s_t lifetime,
-                                              pcp_protocol_t protocol,
-                                              pcp_port_t port,
-                                              pcp_socket_address_t external,
-                                              size_t count,
-                                              pcp_option_t const options[]);
+PCP_EXPORT pcp_handle_or_error_t
+pcp_session_map_request(pcp_session_t *session,
+                        pcp_time_s_t lifetime,
+                        pcp_protocol_t protocol,
+                        pcp_port_t port,
+                        pcp_socket_address_t external,
+                        size_t count,
+                        pcp_option_t const options[]);
 
 /**
  * @brief Allocate a new peer request
@@ -164,14 +166,15 @@ pcp_handle_or_error_t pcp_session_map_request(pcp_session_t *session,
  * @returns The handle, or an error (EMSGSIZE if the options don't fit in a
  *          packet)
  */
-pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
-                                               pcp_time_s_t lifetime,
-                                               pcp_protocol_t protocol,
-                                               pcp_port_t port,
-                                               pcp_socket_address_t external,
-                                               pcp_socket_address_t peer,
-                                               size_t count,
-                                               pcp_option_t const options[]);
+PCP_EXPORT pcp_handle_or_error_t
+pcp_session_peer_request(pcp_session_t *session,
+                         pcp_time_s_t lifetime,
+                         pcp_protocol_t protocol,
+                         pcp_port_t port,
+                         pcp_socket_address_t external,
+                         pcp_socket_address_t peer,
+                         size_t count,
+                         pcp_option_t const options[]);
 
 /**
  * @brief Release a mapping the application no longer needs
@@ -185,7 +188,8 @@ pcp_handle_or_error_t pcp_session_peer_request(pcp_session_t *session,
  * @param[in] handle  The mapping to release. Ignored if it was already
  *                    released or failed.
  */
-void pcp_session_release(pcp_session_t *session, pcp_handle_t handle);
+PCP_EXPORT void pcp_session_release(pcp_session_t *session,
+                                    pcp_handle_t handle);
 
 constexpr size_t PCP_PACKET_MAX_SIZE = 1100;
 
@@ -279,7 +283,8 @@ typedef struct pcp_event {
  *
  * @returns The next event to handle
  */
-pcp_event_t pcp_session_poll(pcp_session_t *session, pcp_time_ms_t now);
+PCP_EXPORT pcp_event_t pcp_session_poll(pcp_session_t *session,
+                                        pcp_time_ms_t now);
 
 /**
  * @brief Hand a datagram received from the PCP server to the session
@@ -296,10 +301,10 @@ pcp_event_t pcp_session_poll(pcp_session_t *session, pcp_time_ms_t now);
  * @param[in] size    The size of `data`
  * @param[in] data    The datagram's payload
  */
-void pcp_session_on_datagram(pcp_session_t *session,
-                             pcp_time_ms_t now,
-                             size_t size,
-                             uint8_t const data[]);
+PCP_EXPORT void pcp_session_on_datagram(pcp_session_t *session,
+                                        pcp_time_ms_t now,
+                                        size_t size,
+                                        uint8_t const data[]);
 
 #ifdef __cplusplus
 }
