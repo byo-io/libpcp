@@ -19,6 +19,9 @@ FetchContent_MakeAvailable(unity)
 function(pcp_add_test_executable target)
   add_executable(${target} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/runner.c ${ARGN})
 
+  # The library's headers only ask for C11, the tests are C23 like the library
+  target_compile_features(${target} PRIVATE c_std_23)
+
   target_link_libraries(${target}
     PRIVATE
       pcp_testing

@@ -3,7 +3,10 @@
 function(pcp_add_library target)
   add_library(${target} ${ARGN})
 
-  target_compile_features(${target} PUBLIC c_std_23)
+  # The library is C23, its headers only need C11
+  target_compile_features(${target}
+    PUBLIC c_std_11
+    PRIVATE c_std_23)
 
   target_compile_definitions(${target}
     PRIVATE
@@ -24,7 +27,7 @@ function(pcp_add_library target)
     FILE_SET HEADERS
     BASE_DIRS ${PROJECT_SOURCE_DIR}/include
       FILES
-        ${PROJECT_SOURCE_DIR}/include/byo/pcp/export.h
+        ${PROJECT_SOURCE_DIR}/include/byo/pcp/compat.h
         ${PROJECT_SOURCE_DIR}/include/byo/pcp/ip.h
         ${PROJECT_SOURCE_DIR}/include/byo/pcp/pcp.h)
 

@@ -1,9 +1,11 @@
 #pragma once
 
 #include <errno.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
-#include "export.h"
+#include "compat.h"
 #include "ip.h"
 
 #ifdef __cplusplus
@@ -77,11 +79,11 @@ PCP_EXPORT pcp_session_t *pcp_session_begin(pcp_config_t config);
  */
 PCP_EXPORT void pcp_session_end(pcp_session_t *session);
 
-typedef enum pcp_protocol : uint8_t {
+PCP_UINT8_ENUM(pcp_protocol) {
   PCP_PROTOCOL_ALL = 0,
   PCP_PROTOCOL_TCP = 6,
   PCP_PROTOCOL_UDP = 17,
-} pcp_protocol_t;
+};
 
 typedef struct pcp_option {
   enum {
@@ -191,7 +193,7 @@ pcp_session_peer_request(pcp_session_t *session,
 PCP_EXPORT void pcp_session_release(pcp_session_t *session,
                                     pcp_handle_t handle);
 
-constexpr size_t PCP_PACKET_MAX_SIZE = 1100;
+#define PCP_PACKET_MAX_SIZE 1100
 
 /**
  * @brief A result code from the server
@@ -200,7 +202,7 @@ constexpr size_t PCP_PACKET_MAX_SIZE = 1100;
  * PCP_EVENT_FAILED passes them on as they are. Treat a code you don't know as
  * any other failure.
  */
-typedef enum pcp_result : uint8_t {
+PCP_UINT8_ENUM(pcp_result) {
   PCP_RESULT_SUCCESS = 0,
   PCP_RESULT_UNSUPP_VERSION = 1,
   PCP_RESULT_NOT_AUTHORIZED = 2,
@@ -215,7 +217,7 @@ typedef enum pcp_result : uint8_t {
   PCP_RESULT_CANNOT_PROVIDE_EXTERNAL = 11,
   PCP_RESULT_ADDRESS_MISMATCH = 12,
   PCP_RESULT_EXCESSIVE_REMOTE_PEERS = 13,
-} pcp_result_t;
+};
 
 /**
  * @brief Something the application has to handle, see pcp_session_poll

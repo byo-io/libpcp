@@ -1,9 +1,12 @@
 #pragma once
 
+#include <assert.h>
+#include <stdalign.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "export.h"
+#include "compat.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,14 +21,15 @@ typedef struct pcp_ip_address {
   uint8_t addr[16];
 } pcp_ip_address_t;
 
-static_assert(sizeof(pcp_ip_address_t) == 16 && alignof(pcp_ip_address_t) == 1);
+static_assert(sizeof(pcp_ip_address_t) == 16 && alignof(pcp_ip_address_t) == 1,
+              "an address is just its 16 bytes");
 
-static constexpr pcp_ip_address_t pcp_ip_address_any_v4 = {
+static PCP_CONSTEXPR pcp_ip_address_t pcp_ip_address_any_v4 = {
     .addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0}};
-static constexpr pcp_ip_address_t pcp_ip_address_loopback_v4 = {
+static PCP_CONSTEXPR pcp_ip_address_t pcp_ip_address_loopback_v4 = {
     .addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 127, 0, 0, 1}};
-static constexpr pcp_ip_address_t pcp_ip_address_any_v6 = {.addr = {0}};
-static constexpr pcp_ip_address_t pcp_ip_address_loopback_v6 = {
+static PCP_CONSTEXPR pcp_ip_address_t pcp_ip_address_any_v6 = {.addr = {0}};
+static PCP_CONSTEXPR pcp_ip_address_t pcp_ip_address_loopback_v6 = {
     .addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
 
 /**
@@ -60,7 +64,7 @@ typedef struct pcp_optional_ip_address {
  */
 PCP_EXPORT pcp_optional_ip_address_t pcp_ip_address_from_string(const char *ip);
 
-static constexpr size_t PCP_IP_ADDRESS_STRING_LENGTH = 56;
+#define PCP_IP_ADDRESS_STRING_LENGTH 56
 
 /**
  * @brief Format an address as text, IPv4 in the usual dotted form
@@ -132,7 +136,7 @@ typedef struct pcp_optional_socket_address {
 PCP_EXPORT pcp_optional_socket_address_t
 pcp_socket_address_from_string(const char *address);
 
-static constexpr size_t PCP_SOCKET_ADDRESS_STRING_LENGTH = 56;
+#define PCP_SOCKET_ADDRESS_STRING_LENGTH 56
 
 /**
  * @brief Format a socket address as "a.b.c.d:port" or "[ipv6]:port"

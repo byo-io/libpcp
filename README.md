@@ -96,8 +96,9 @@ releasing its mapping on Ctrl-C.
 
 ## Building
 
-libpcp needs a C23 compiler and CMake 3.23 or newer. CI builds with GCC 14 and
-Clang 20.
+libpcp needs a C23 compiler and CMake 3.23 or newer to build. CI builds with
+GCC 14 and Clang 20. Its headers only need C11, so projects using it can stay on
+an older standard.
 
 ```sh
 cmake -S . -B build
@@ -168,7 +169,7 @@ usual `BUILD_TESTING`, `PCP_BUILD_EXAMPLE` and `PCP_INSTALL`.
 ### Using it with pkg-config
 
 ```sh
-cc -std=c23 main.c $(pkg-config --cflags --libs byo-pcp)
+cc main.c $(pkg-config --cflags --libs byo-pcp)
 ```
 
 ## License
