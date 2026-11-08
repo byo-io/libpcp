@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 // The application side of the library: holds a session, asks for mappings and
 // runs the event loop any application would. It's generic on purpose, and only

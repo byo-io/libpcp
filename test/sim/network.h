@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 // The network between the client and the server. It carries opaque datagrams
 // and knows nothing about what's in them, what happens to each of them is up to

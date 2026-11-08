@@ -130,17 +130,17 @@ cmake --build build
 cmake --install build --prefix /usr/local
 ```
 
-This installs the headers, the library and a CMake package. Set
-`BUILD_SHARED_LIBS=ON` for a shared library.
+This installs the headers under `byo/pcp/`, the library as `libbyo-pcp` and a
+CMake package. Set `BUILD_SHARED_LIBS=ON` for a shared library.
 
 ### Using it from CMake
 
 An installed libpcp is found with `find_package`:
 
 ```cmake
-find_package(pcp 1.0 REQUIRED)
+find_package(byo-pcp 1.0 REQUIRED)
 
-target_link_libraries(your_target PRIVATE pcp::pcp)
+target_link_libraries(your_target PRIVATE byo::pcp)
 ```
 
 Or it can be built along with your project using FetchContent:
@@ -148,13 +148,13 @@ Or it can be built along with your project using FetchContent:
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
-  pcp
+  byo-pcp
   GIT_REPOSITORY https://github.com/davidlwesten/libpcp.git
   GIT_TAG v1.0.0
 )
-FetchContent_MakeAvailable(pcp)
+FetchContent_MakeAvailable(byo-pcp)
 
-target_link_libraries(your_target PRIVATE pcp::pcp)
+target_link_libraries(your_target PRIVATE byo::pcp)
 ```
 
 The tests, the example and the install rules are only part of the build when

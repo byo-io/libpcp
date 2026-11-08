@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 typedef struct pcp_epoch {
   bool has_previous;

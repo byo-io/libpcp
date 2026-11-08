@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 #include "mapping.h"
 #include "pcp/epoch.h"

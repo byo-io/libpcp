@@ -1,5 +1,5 @@
 add_library(pcp)
-add_library(pcp::pcp ALIAS pcp)
+add_library(byo::pcp ALIAS pcp)
 
 target_compile_features(pcp PUBLIC c_std_23)
 
@@ -49,8 +49,8 @@ target_sources(pcp
   FILE_SET HEADERS
   BASE_DIRS ${PROJECT_SOURCE_DIR}/include
     FILES
-      ${PROJECT_SOURCE_DIR}/include/pcp/ip.h
-      ${PROJECT_SOURCE_DIR}/include/pcp/pcp.h)
+      ${PROJECT_SOURCE_DIR}/include/byo/pcp/ip.h
+      ${PROJECT_SOURCE_DIR}/include/byo/pcp/pcp.h)
 
 target_sources(pcp
   PRIVATE
@@ -71,35 +71,37 @@ target_sources(pcp
 # target
 target_link_libraries(pcp PRIVATE $<BUILD_INTERFACE:pcp_warnings>)
 
-# A shared library's soname only changes with the major version
+# Installed as libbyo-pcp, since other projects already use libpcp. A shared
+# library's soname only changes with the major version.
 set_target_properties(pcp PROPERTIES
+  OUTPUT_NAME byo-pcp
   VERSION ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR})
 
 # Installs the library and its headers, and a package so other projects can
-# find_package(pcp) and link to pcp::pcp
+# find_package(byo-pcp) and link to byo::pcp
 if(PCP_INSTALL)
   include(GNUInstallDirs)
   include(CMakePackageConfigHelpers)
 
-  set(PCP_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/pcp)
+  set(PCP_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/byo-pcp)
 
   install(TARGETS pcp
-    EXPORT pcpTargets
+    EXPORT byo-pcpTargets
     FILE_SET HEADERS)
-  install(EXPORT pcpTargets
-    NAMESPACE pcp::
+  install(EXPORT byo-pcpTargets
+    NAMESPACE byo::
     DESTINATION ${PCP_CMAKE_DIR})
 
   configure_package_config_file(
-    ${PROJECT_SOURCE_DIR}/cmake/pcpConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/pcpConfig.cmake
+    ${PROJECT_SOURCE_DIR}/cmake/byo-pcpConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfig.cmake
     INSTALL_DESTINATION ${PCP_CMAKE_DIR})
   write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/pcpConfigVersion.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfigVersion.cmake
     COMPATIBILITY SameMajorVersion)
   install(FILES
-      ${CMAKE_CURRENT_BINARY_DIR}/pcpConfig.cmake
-      ${CMAKE_CURRENT_BINARY_DIR}/pcpConfigVersion.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfig.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfigVersion.cmake
     DESTINATION ${PCP_CMAKE_DIR})
 endif()

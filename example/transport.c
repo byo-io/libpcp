@@ -1,6 +1,6 @@
 #include "transport.h"
-#include "pcp/ip.h"
-#include "pcp/pcp.h"
+#include "byo/pcp/ip.h"
+#include "byo/pcp/pcp.h"
 
 #include <assert.h>
 #include <errno.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 // A PCP server (RFC 6887) for the simulation. It tracks real leases and only
 // knows the client through the bytes it sends. It shares the library's

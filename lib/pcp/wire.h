@@ -1,7 +1,7 @@
 #pragma once
 
-#include <pcp/ip.h>
-#include <pcp/pcp.h>
+#include <byo/pcp/ip.h>
+#include <byo/pcp/pcp.h>
 
 #include "pcp_gen.h"
 #include "view.h"

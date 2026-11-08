@@ -1,7 +1,7 @@
 #pragma once
 
-#include <pcp/ip.h>
-#include <pcp/pcp.h>
+#include <byo/pcp/ip.h>
+#include <byo/pcp/pcp.h>
 
 pcp_socket_address_t transport_init(pcp_socket_address_t server);
 

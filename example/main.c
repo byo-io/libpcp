@@ -1,4 +1,4 @@
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/random.h>
 
-#include "pcp/ip.h"
+#include "byo/pcp/ip.h"
 #include "transport.h"
 
 static bool pcp_rng(void * /*ctx*/, size_t count, uint8_t bytes[count]);

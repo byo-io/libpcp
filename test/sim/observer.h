@@ -1,6 +1,6 @@
 #pragma once
 
-#include <pcp/pcp.h>
+#include <byo/pcp/pcp.h>
 
 // Watches what the application is told and fails the test as soon as that
 // breaks a promise from pcp.h. What it keeps per mapping is what the
