@@ -1,6 +1,6 @@
 # libpcp
 
-[![CI](https://github.com/davidlwesten/libpcp/actions/workflows/ci.yml/badge.svg)](https://github.com/davidlwesten/libpcp/actions/workflows/ci.yml)
+[![CI](https://github.com/byo-io/libpcp/actions/workflows/ci.yml/badge.svg)](https://github.com/byo-io/libpcp/actions/workflows/ci.yml)
 
 A client library for the Port Control Protocol ([RFC 6887]), written in C23.
 
@@ -153,7 +153,7 @@ Or it can be built along with your project using FetchContent:
 include(FetchContent)
 FetchContent_Declare(
   byo-pcp
-  GIT_REPOSITORY https://github.com/davidlwesten/libpcp.git
+  GIT_REPOSITORY https://github.com/byo-io/libpcp.git
   GIT_TAG v1.0.0
 )
 FetchContent_MakeAvailable(byo-pcp)
