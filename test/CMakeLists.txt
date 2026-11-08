@@ -25,7 +25,7 @@ function(pcp_add_test_executable target)
   target_link_libraries(${target}
     PRIVATE
       pcp_testing
-      unity)
+      unity::framework)
 
   target_include_directories(${target}
     PRIVATE
