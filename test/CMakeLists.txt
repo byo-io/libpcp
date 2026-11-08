@@ -1,8 +1,16 @@
 include(FetchContent)
+
+# Keeps Unity's own install rules out of cmake --install, which CMake can only
+# do from 3.28
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+  set(PCP_UNITY_EXCLUDE EXCLUDE_FROM_ALL)
+endif()
+
 FetchContent_Declare(
   unity
   GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
   GIT_TAG v2.7.0
+  ${PCP_UNITY_EXCLUDE}
 )
 FetchContent_MakeAvailable(unity)
 
