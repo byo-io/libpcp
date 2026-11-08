@@ -28,7 +28,7 @@ jobs:
       # Shared, so the example fails to link if a function it uses isn't
       # exported
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=${{ matrix.compiler }} -DBUILD_SHARED_LIBS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=${{ matrix.compiler }} -DBUILD_SHARED_LIBS=ON -DPCP_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: cmake --build build --parallel

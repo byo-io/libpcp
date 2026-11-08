@@ -7,8 +7,9 @@ project(pcp VERSION 1.0.0 LANGUAGES C)
 option(PCP_BUILD_EXAMPLE "Build the example client" ${PROJECT_IS_TOP_LEVEL})
 option(PCP_BUILD_FUZZER "Build the libFuzzer harness for the wire format (clang)"
        OFF)
-option(PCP_WARNINGS_AS_ERRORS "Treat compiler warnings as errors"
-       ${PROJECT_IS_TOP_LEVEL})
+# Off by default, so a newer compiler's warnings don't break the build. CI turns
+# it on.
+option(PCP_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(PCP_INSTALL "Generate the install rules" ${PROJECT_IS_TOP_LEVEL})
 
 include(cmake/warnings.cmake)
