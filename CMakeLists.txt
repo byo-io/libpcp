@@ -11,6 +11,9 @@ option(PCP_BUILD_FUZZER "Build the libFuzzer harness for the wire format (clang)
 # it on.
 option(PCP_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(PCP_INSTALL "Generate the install rules" ${PROJECT_IS_TOP_LEVEL})
+# For platforms or build environments without ASan, e.g. some distribution
+# build machines
+option(PCP_TEST_SANITIZERS "Build the tests with AddressSanitizer" ON)
 
 include(cmake/warnings.cmake)
 

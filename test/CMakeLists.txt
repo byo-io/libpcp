@@ -31,16 +31,18 @@ function(pcp_add_test_executable target)
     PRIVATE
       ${CMAKE_CURRENT_FUNCTION_LIST_DIR})
 
-  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
-    target_compile_options(${target}
-      PRIVATE
-        -fsanitize=address
-        -fno-omit-frame-pointer)
-    target_link_options(${target} PRIVATE -fsanitize=address)
-  elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(${target} PRIVATE /fsanitize=address PRIVATE /Zi)
-  else()
-    message(WARNING "ASan not configured for compiler: ${CMAKE_C_COMPILER_ID}")
+  if(PCP_TEST_SANITIZERS)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+      target_compile_options(${target}
+        PRIVATE
+          -fsanitize=address
+          -fno-omit-frame-pointer)
+      target_link_options(${target} PRIVATE -fsanitize=address)
+    elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+      target_compile_options(${target} PRIVATE /fsanitize=address PRIVATE /Zi)
+    else()
+      message(WARNING "ASan not configured for compiler: ${CMAKE_C_COMPILER_ID}")
+    endif()
   endif()
 
   # one ctest test per RUN_TEST(...) in the test sources, so tests only need to

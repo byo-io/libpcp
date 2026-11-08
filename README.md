@@ -106,6 +106,13 @@ cmake --build build
 ctest --test-dir build
 ```
 
+The tests download [Unity] and run with AddressSanitizer. Without network
+access, `-DFETCHCONTENT_TRY_FIND_PACKAGE_MODE=ALWAYS` uses an installed Unity
+instead, and `-DPCP_TEST_SANITIZERS=OFF` turns ASan off where it isn't
+available.
+
+[Unity]: https://github.com/ThrowTheSwitch/Unity
+
 The wire format is generated from `lib/pcp/pcp.pkt` by [pktc], along with a
 libFuzzer harness for it. To build and run the harness (clang only):
 
