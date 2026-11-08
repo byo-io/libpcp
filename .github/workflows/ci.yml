@@ -25,8 +25,10 @@ jobs:
           wget -q https://apt.llvm.org/llvm.sh
           sudo bash llvm.sh 20
 
+      # Shared, so the example fails to link if a function it uses isn't
+      # exported
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=${{ matrix.compiler }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=${{ matrix.compiler }} -DBUILD_SHARED_LIBS=ON
 
       - name: Build
         run: cmake --build build --parallel
