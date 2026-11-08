@@ -1,16 +1,14 @@
-include(FetchContent)
+# The library itself only needs 3.23. The tests need 3.28 to keep Unity's own
+# install rules out of cmake --install (EXCLUDE_FROM_ALL).
+cmake_minimum_required(VERSION 3.28)
 
-# Keeps Unity's own install rules out of cmake --install, which CMake can only
-# do from 3.28
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
-  set(PCP_UNITY_EXCLUDE EXCLUDE_FROM_ALL)
-endif()
+include(FetchContent)
 
 FetchContent_Declare(
   unity
   GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
   GIT_TAG v2.7.0
-  ${PCP_UNITY_EXCLUDE}
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(unity)
 
