@@ -78,8 +78,8 @@ set_target_properties(pcp PROPERTIES
   VERSION ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR})
 
-# Installs the library and its headers, and a package so other projects can
-# find_package(byo-pcp) and link to byo::pcp
+# Installs the library and its headers, a package so other projects can
+# find_package(byo-pcp) and link to byo::pcp, and a pkg-config file
 if(PCP_INSTALL)
   include(GNUInstallDirs)
   include(CMakePackageConfigHelpers)
@@ -104,4 +104,11 @@ if(PCP_INSTALL)
       ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfig.cmake
       ${CMAKE_CURRENT_BINARY_DIR}/byo-pcpConfigVersion.cmake
     DESTINATION ${PCP_CMAKE_DIR})
+
+  # The paths are absolute, from CMAKE_INSTALL_PREFIX, so pkg-config can tell
+  # when they're system directories and leave them out
+  configure_file(${PROJECT_SOURCE_DIR}/cmake/byo-pcp.pc.in
+                 ${CMAKE_CURRENT_BINARY_DIR}/byo-pcp.pc @ONLY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/byo-pcp.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endif()

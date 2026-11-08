@@ -125,13 +125,17 @@ The example client takes the server's address:
 ### Installing
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
 cmake --build build
-cmake --install build --prefix /usr/local
+cmake --install build
 ```
 
-This installs the headers under `byo/pcp/`, the library as `libbyo-pcp` and a
-CMake package. Set `BUILD_SHARED_LIBS=ON` for a shared library.
+This installs the headers under `byo/pcp/`, the library as `libbyo-pcp`, a
+CMake package and a pkg-config file, `byo-pcp.pc`. Set `BUILD_SHARED_LIBS=ON`
+for a shared library.
+
+The pkg-config file has the prefix from configuring, so set it there rather
+than with `cmake --install --prefix`.
 
 ### Using it from CMake
 
@@ -160,6 +164,12 @@ target_link_libraries(your_target PRIVATE byo::pcp)
 The tests, the example and the install rules are only part of the build when
 libpcp is the top-level project. On its own, they can be turned off with the
 usual `BUILD_TESTING`, `PCP_BUILD_EXAMPLE` and `PCP_INSTALL`.
+
+### Using it with pkg-config
+
+```sh
+cc -std=c23 main.c $(pkg-config --cflags --libs byo-pcp)
+```
 
 ## License
 
