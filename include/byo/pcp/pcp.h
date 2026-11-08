@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -84,6 +85,8 @@ PCP_UINT8_ENUM(pcp_protocol) {
   PCP_PROTOCOL_TCP = 6,
   PCP_PROTOCOL_UDP = 17,
 };
+
+static_assert(sizeof(pcp_protocol_t) == 1, "one byte, also before C23");
 
 typedef struct pcp_option {
   enum {
@@ -218,6 +221,8 @@ PCP_UINT8_ENUM(pcp_result) {
   PCP_RESULT_ADDRESS_MISMATCH = 12,
   PCP_RESULT_EXCESSIVE_REMOTE_PEERS = 13,
 };
+
+static_assert(sizeof(pcp_result_t) == 1, "one byte, also before C23");
 
 /**
  * @brief Something the application has to handle, see pcp_session_poll
